@@ -1,0 +1,40 @@
+{
+    "name": "APIC - Alat Pinjam Mudah Cepat",
+    "short_name": "APIC",
+    "description": "Sistem manajemen peminjaman alat SMK Muhammadiyah 1 Bantul. Kelola stok, peminjaman, dan pengembalian alat dalam satu platform terintegrasi.",
+    "lang": "id",
+    "id": "/",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#0f172a",
+    "theme_color": "#0d9488",
+    "categories": ["education", "productivity", "utilities"],
+    "icons": [
+        { "src": "icon-72x72.png?v=20260811",   "sizes": "72x72",   "type": "image/png", "purpose": "any" },
+        { "src": "icon-96x96.png?v=20260811",   "sizes": "96x96",   "type": "image/png", "purpose": "any" },
+        { "src": "icon-128x128.png?v=20260811", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+        { "src": "icon-144x144.png?v=20260811", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+        { "src": "icon-152x152.png?v=20260811", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+        { "src": "icon-192x192.png?v=20260811", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+        { "src": "icon-384x384.png?v=20260811", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+        { "src": "icon-512x512.png?v=20260811", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    ],
+    "shortcuts": [
+        {
+            "name": "Katalog Alat",
+            "short_name": "Katalog",
+            "description": "Lihat daftar alat yang tersedia",
+            "url": "/user/alat",
+            "icons": [{ "src": "icon-96x96.png?v=20260811", "sizes": "96x96" }]
+        },
+        {
+            "name": "Riwayat Peminjaman",
+            "short_name": "Riwayat",
+            "description": "Lihat riwayat peminjaman Anda",
+            "url": "/user/peminjaman",
+            "icons": [{ "src": "icon-96x96.png?v=20260811", "sizes": "96x96" }]
+        }
+    ]
+}

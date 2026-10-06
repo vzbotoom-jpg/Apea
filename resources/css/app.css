@@ -1,0 +1,225 @@
+/* resources/css/app.css */
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+
+/* =====================================================
+   APIC — CORPORATE MODERN CLEAN DESIGN SYSTEM (v2)
+   Palette: Teal (primary) · Cyan (secondary) · Slate (neutral)
+===================================================== */
+
+@theme {
+    /* Typography */
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Primary — Teal */
+    --color-primary-50:  #f0fdfa;
+    --color-primary-100: #ccfbf1;
+    --color-primary-200: #99f6e4;
+    --color-primary-300: #5eead4;
+    --color-primary-400: #2dd4bf;
+    --color-primary-500: #14b8a6;
+    --color-primary-600: #0d9488;
+    --color-primary-700: #0f766e;
+    --color-primary-800: #115e59;
+    --color-primary-900: #134e4a;
+    --color-primary-950: #042f2e;
+
+    /* Secondary — Cyan */
+    --color-secondary-50:  #ecfeff;
+    --color-secondary-100: #cffafe;
+    --color-secondary-200: #a5f3fc;
+    --color-secondary-300: #67e8f9;
+    --color-secondary-400: #22d3ee;
+    --color-secondary-500: #06b6d4;
+    --color-secondary-600: #0891b2;
+    --color-secondary-700: #0e7490;
+    --color-secondary-800: #155e75;
+    --color-secondary-900: #164e63;
+    --color-secondary-950: #083344;
+
+    /* Elevation (kartu korporat: halus, tidak berat) */
+    --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.05), 0 2px 6px -1px rgb(15 23 42 / 0.08);
+    --shadow-card-hover: 0 4px 14px -2px rgb(15 23 42 / 0.12), 0 2px 6px -2px rgb(15 23 42 / 0.08);
+    --shadow-modal: 0 20px 50px -12px rgb(15 23 42 / 0.25);
+
+    /* Motion */
+    --animate-fade-in-down: fade-in-down 0.35s ease-out both;
+    --animate-fade-in-up: fade-in-up 0.35s ease-out both;
+    --animate-scale-in: scale-in 0.2s ease-out both;
+
+    @keyframes fade-in-down {
+        from { opacity: 0; transform: translateY(-10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes scale-in {
+        from { opacity: 0; transform: scale(0.96); }
+        to   { opacity: 1; transform: scale(1); }
+    }
+}
+
+/* ------------------------- Base ------------------------- */
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-slate-50 font-sans text-slate-900 antialiased;
+    }
+
+    /* Alpine: cegah elemen "kedip" sebelum inisialisasi */
+    [x-cloak] {
+        display: none !important;
+    }
+
+    /* Seleksi teks senada brand */
+    ::selection {
+        @apply bg-teal-200 text-teal-950;
+    }
+
+    /* Aksesibilitas keyboard */
+    :focus-visible {
+        outline: 2px solid var(--color-primary-500);
+        outline-offset: 2px;
+    }
+
+    /* Inline code (halaman panduan / download) */
+    code {
+        @apply rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-teal-700;
+    }
+
+    /* Scrollbar tipis ala aplikasi korporat */
+    *::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    *::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    *::-webkit-scrollbar-thumb {
+        @apply rounded-full bg-slate-300;
+    }
+    *::-webkit-scrollbar-thumb:hover {
+        @apply bg-slate-400;
+    }
+
+    /* Hormati pengguna yang mematikan animasi */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+}
+
+/* --------------------- Custom Utilities --------------------- */
+/* Alias singkat primary (kompatibel dengan blade lama) */
+@utility text-primary {
+    color: var(--color-primary-600);
+}
+@utility bg-primary {
+    background-color: var(--color-primary-600);
+}
+@utility border-primary {
+    border-color: var(--color-primary-600);
+}
+@utility hover-bg-primary {
+    &:hover {
+        background-color: var(--color-primary-700);
+    }
+}
+
+/* Alias singkat secondary */
+@utility text-secondary {
+    color: var(--color-secondary-600);
+}
+@utility bg-secondary {
+    background-color: var(--color-secondary-600);
+}
+@utility border-secondary {
+    border-color: var(--color-secondary-600);
+}
+@utility hover-bg-secondary {
+    &:hover {
+        background-color: var(--color-secondary-700);
+    }
+}
+
+/* Focus ring (perbaikan: properti valid, bukan `ring-color`) */
+@utility focus-ring-primary {
+    &:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary-500) 35%, transparent);
+    }
+}
+@utility focus-ring-secondary {
+    &:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-secondary-500) 35%, transparent);
+    }
+}
+
+/* Transisi sidebar mobile (dipakai components/sidebar/*.blade.php) */
+@utility sidebar-transition {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Kartu korporat siap pakai */
+@utility card {
+    background-color: #ffffff;
+    border: 1px solid var(--color-slate-200);
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-card);
+}
+@utility card-hover {
+    &:hover {
+        border-color: var(--color-primary-300);
+        box-shadow: var(--shadow-card-hover);
+    }
+}
+
+/* --------------------- Status Badges --------------------- */
+@utility badge-baik           { background-color: #dcfce7; color: #166534; }
+@utility badge-rusak-ringan   { background-color: #fef3c7; color: #92400e; }
+@utility badge-rusak-berat    { background-color: #fee2e2; color: #991b1b; }
+@utility badge-perbaikan      { background-color: #ffedd5; color: #9a3412; }
+@utility badge-tersedia       { background-color: #dcfce7; color: #166534; }
+@utility badge-dipinjam       { background-color: #fef3c7; color: #92400e; }
+@utility badge-menunggu       { background-color: #fef9c3; color: #854d0e; }
+@utility badge-diverifikasi   { background-color: #dbeafe; color: #1e40af; }
+@utility badge-dikembalikan   { background-color: #dcfce7; color: #166534; }
+@utility badge-terlambat      { background-color: #fee2e2; color: #991b1b; }
+
+/* --------------------- Print (Struk/Laporan) --------------------- */
+@media print {
+    body {
+        background: #fff !important;
+    }
+    nav,
+    footer,
+    aside,
+    .no-print,
+    .alert-dismissible {
+        display: none !important;
+    }
+    main {
+        padding: 0 !important;
+    }
+    a {
+        text-decoration: none;
+        color: inherit;
+    }
+    @page {
+        margin: 1.5cm;
+    }
+}

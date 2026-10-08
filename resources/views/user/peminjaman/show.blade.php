@@ -24,7 +24,7 @@
                     @endswitch">
                     {{ ucfirst($peminjaman->status) }}
                 </span>
-                {{-- ✅ BARU: badge perpanjangan menunggu --}}
+                {{-- Badge perpanjangan menunggu --}}
                 @if($peminjaman->perpanjanganMenunggu())
                     <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-700 shadow-sm">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -110,7 +110,8 @@
                             <p class="text-xs {{ $peminjaman->status === 'terlambat' ? 'text-red-600' : 'text-amber-600' }} mt-1">
                                 @if($peminjaman->status === 'terlambat')
                                     Keterlambatan {{ $peminjaman->getLateDays() }} hari.
-                                    @if($denda > 0)
+                                    {{-- ✅ FIX: aman jika $denda tidak dikirim controller --}}
+                                    @if(($denda ?? 0) > 0)
                                         Total denda: <strong>Rp {{ number_format($denda, 0, ',', '.') }}</strong>. Harap segera lakukan pengembalian.
                                     @else
                                         Masih dalam masa tenggang (2 hari).
@@ -124,9 +125,8 @@
                 </div>
             @endif
 
-            {{-- ===== ✅ BARU: PERPANJANGAN PINJAMAN ===== --}}
+            {{-- ===== PERPANJANGAN PINJAMAN ===== --}}
             @if($peminjaman->bisaPerpanjangan())
-                {{-- Form ajukan perpanjangan --}}
                 <div class="p-5 bg-teal-50/60 border border-teal-200 rounded-lg">
                     <div class="flex items-center gap-2 mb-2">
                         <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -151,7 +151,6 @@
                     </form>
                 </div>
             @elseif($peminjaman->perpanjangan_requested)
-                {{-- Kartu status perpanjangan --}}
                 @php
                     $ext = match($peminjaman->status_perpanjangan) {
                         'disetujui' => ['bg-emerald-50 border-emerald-200', 'text-emerald-800', 'text-emerald-600'],
@@ -187,7 +186,7 @@
                 $infoTransfer = \App\Models\Setting::get('info_transfer', '');
             @endphp
 
-            {{-- ===== ✅ BARU: STATUS PEMBAYARAN ===== --}}
+            {{-- ===== STATUS PEMBAYARAN ===== --}}
             <div class="p-4 rounded-lg border {{ $peminjaman->status_pembayaran === 'lunas' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200' }}">
                 <div class="flex items-center justify-between gap-3">
                     <div>
@@ -208,9 +207,19 @@
                         {{ $peminjaman->status_pembayaran === 'lunas' ? 'LUNAS' : 'BELUM LUNAS' }}
                     </span>
                 </div>
+
+                {{-- ✅ FIX: tombol bayar KONDISIONAL (tidak duplikat, tidak muncul saat menunggu/lunas) --}}
+                @if($peminjaman->status_pembayaran !== 'lunas' && in_array($peminjaman->status, ['diverifikasi', 'dipinjam', 'terlambat']))
+                    <a href="{{ route('user.peminjaman.bayar', $peminjaman) }}"
+                       class="mt-4 w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-lg transition">
+                        💳 Bayar Sekarang
+                    </a>
+                @elseif($peminjaman->status === 'menunggu' && $peminjaman->status_pembayaran !== 'lunas')
+                    <p class="mt-3 text-[11px] text-slate-500">ℹ️ Pembayaran dapat dilakukan setelah pengajuan diverifikasi petugas.</p>
+                @endif
             </div>
 
-            {{-- ===== ✅ BARU: QR TRANSAKSI ===== --}}
+            {{-- ===== QR TRANSAKSI ===== --}}
             <div class="p-5 bg-white border border-slate-200 rounded-lg text-center">
                 <img src="{{ route('qr.peminjaman', $peminjaman) }}" alt="QR Transaksi"
                      class="w-40 h-40 mx-auto rounded-lg border border-slate-200 bg-white p-2">
@@ -225,10 +234,7 @@
                 </div>
             @endif
 
-            <a href="{{ route('user.peminjaman.bayar', $peminjaman) }}"
-                class="px-4 py-2 bg-teal-600 text-white text-sm font-bold rounded-lg hover:bg-teal-700 transition shrink-0">
-                 Bayar Sekarang
-            </a>
+            {{-- ✅ FIX: tombol "Bayar Sekarang" standalone DUPLIKAT dihapus --}}
 
             {{-- Actions --}}
             <div class="pt-6 border-t border-slate-100 flex flex-wrap gap-3 justify-between items-center">

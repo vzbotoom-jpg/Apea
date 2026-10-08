@@ -1,17 +1,14 @@
 <!-- resources/views/user/peminjaman/create.blade.php -->
 @extends('layouts.user')
-
 @section('title', 'Ajukan Peminjaman')
 @section('page-title', 'Ajukan Peminjaman')
-
 @section('content')
 <div class="max-w-3xl mx-auto">
-    
     {{-- Info Banner: Limit Check --}}
     <div class="mb-6 p-4 rounded-lg flex items-start gap-3 {{ $totalDipinjamHariIni >= 2 ? 'bg-red-50 border border-red-200' : 'bg-teal-50 border border-teal-200' }}">
         <div class="mt-0.5">
             @if($totalDipinjamHariIni >= 2)
-                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0-2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             @else
                 <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             @endif
@@ -34,7 +31,6 @@
         <div class="p-6 md:p-8">
             <form action="{{ route('user.peminjaman.store') }}" method="POST" class="space-y-8">
                 @csrf
-
                 {{-- Step 1: Pilih Alat --}}
                 <div>
                     <label class="block text-sm font-bold text-slate-900 mb-4">1. Pilih Alat</label>
@@ -42,11 +38,9 @@
                         @forelse($alats as $alat)
                             <label class="relative flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-all duration-200
                                 {{ $totalDipinjamHariIni >= 2 ? 'opacity-50 cursor-not-allowed bg-slate-50 border-slate-200' : 'border-slate-200 hover:border-teal-500 hover:bg-teal-50/30 has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50 has-[:checked]:ring-1 has-[:checked]:ring-teal-600' }}">
-                                
-                                <input type="checkbox" name="alat_ids[]" value="{{ $alat->id }}" 
+                                <input type="checkbox" name="alat_ids[]" value="{{ $alat->id }}"
                                        class="mt-1 w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
                                        {{ $totalDipinjamHariIni >= 2 ? 'disabled' : '' }}>
-                                
                                 <div class="flex-1">
                                     <div class="flex justify-between items-start">
                                         <p class="text-sm font-bold text-slate-900">{{ $alat->nama_alat }}</p>
@@ -69,7 +63,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
                     <div>
                         <label for="tanggal_pinjam" class="block text-sm font-bold text-slate-900 mb-2">2. Tanggal Pinjam</label>
-                        <input type="date" name="tanggal_pinjam" id="tanggal_pinjam" 
+                        <input type="date" name="tanggal_pinjam" id="tanggal_pinjam"
                                value="{{ old('tanggal_pinjam', date('Y-m-d')) }}"
                                min="{{ date('Y-m-d') }}"
                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition text-sm text-slate-700">
@@ -77,7 +71,7 @@
                     </div>
                     <div>
                         <label for="tanggal_jatuh_tempo" class="block text-sm font-bold text-slate-900 mb-2">3. Tanggal Kembali</label>
-                        <input type="date" name="tanggal_jatuh_tempo" id="tanggal_jatuh_tempo" 
+                        <input type="date" name="tanggal_jatuh_tempo" id="tanggal_jatuh_tempo"
                                value="{{ old('tanggal_jatuh_tempo', date('Y-m-d', strtotime('+3 days'))) }}"
                                min="{{ date('Y-m-d', strtotime('+1 day')) }}"
                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition text-sm text-slate-700">
@@ -88,7 +82,7 @@
                 {{-- Step 3: Catatan --}}
                 <div class="pt-6 border-t border-slate-100">
                     <label for="catatan" class="block text-sm font-bold text-slate-900 mb-2">4. Catatan Tambahan <span class="font-normal text-slate-400">(Opsional)</span></label>
-                    <textarea name="catatan" id="catatan" rows="3" 
+                    <textarea name="catatan" id="catatan" rows="3"
                               class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition text-sm text-slate-700"
                               placeholder="Contoh: Untuk praktikum lab fisika...">{{ old('catatan') }}</textarea>
                     @error('catatan') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
@@ -99,7 +93,7 @@
                     <a href="{{ route('user.peminjaman.index') }}" class="px-5 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-900 transition">
                         Batal
                     </a>
-                    <button type="submit" 
+                    <button type="submit"
                             class="px-6 py-2.5 bg-teal-600 text-white text-sm font-bold rounded-lg hover:bg-teal-700 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             {{ $totalDipinjamHariIni >= 2 ? 'disabled' : '' }}>
                         Kirim Pengajuan
@@ -132,3 +126,37 @@
     </div>
 </div>
 @endsection
+
+{{-- ✅ BARU: validasi sisi klien (kuota & tanggal) --}}
+@push('scripts')
+<script>
+    // 1) Batasi centang alat sesuai sisa kuota harian
+    const sisaKuota = {{ max(0, 2 - $totalDipinjamHariIni) }};
+    const boxes = document.querySelectorAll('input[name="alat_ids[]"]');
+    boxes.forEach(box => {
+        box.addEventListener('change', () => {
+            const tercentang = [...boxes].filter(b => b.checked).length;
+            if (tercentang > sisaKuota) {
+                box.checked = false;
+                alert('Maksimal ' + sisaKuota + ' alat sesuai sisa kuota harian Anda.');
+            }
+        });
+    });
+
+    // 2) Tanggal kembali wajib setelah tanggal pinjam
+    const tglPinjam  = document.getElementById('tanggal_pinjam');
+    const tglKembali = document.getElementById('tanggal_jatuh_tempo');
+    const pad = n => String(n).padStart(2, '0');
+    const sinkronkanMin = () => {
+        if (!tglPinjam.value) return;
+        const d = new Date(tglPinjam.value + 'T00:00:00');
+        d.setDate(d.getDate() + 1);
+        tglKembali.min = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+        if (tglKembali.value && tglKembali.value <= tglPinjam.value) {
+            tglKembali.value = tglKembali.min;
+        }
+    };
+    tglPinjam.addEventListener('change', sinkronkanMin);
+    sinkronkanMin();
+</script>
+@endpush

@@ -1,18 +1,15 @@
 <!-- resources/views/user/peminjaman/index.blade.php -->
 @extends('layouts.user')
-
 @section('title', 'Riwayat Peminjaman')
 @section('page-title', 'Riwayat Peminjaman')
-
 @section('content')
 <div class="space-y-6">
-    
     {{-- Header Actions --}}
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <p class="text-slate-500 text-sm">Total {{ $peminjamans->total() }} transaksi ditemukan.</p>
         </div>
-        <a href="{{ route('user.peminjaman.create') }}" 
+        <a href="{{ route('user.peminjaman.create') }}"
            class="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition shadow-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Ajukan Peminjaman Baru
@@ -42,6 +39,8 @@
                             <th class="px-6 py-4">Jatuh Tempo</th>
                             <th class="px-6 py-4">Item</th>
                             <th class="px-6 py-4 text-center">Status</th>
+                            {{-- ✅ BARU: kolom pembayaran --}}
+                            <th class="px-6 py-4 text-center">Pembayaran</th>
                             <th class="px-6 py-4 text-right">Aksi</th>
                         </tr>
                     </thead>
@@ -70,10 +69,25 @@
                                         @endswitch">
                                         {{ ucfirst($peminjaman->status) }}
                                     </span>
+                                    {{-- ✅ BARU: badge perpanjangan --}}
+                                    @if($peminjaman->perpanjanganMenunggu())
+                                        <span class="block mt-1 text-[10px] font-bold text-amber-600">+ Perpanjangan diajukan</span>
+                                    @endif
+                                </td>
+                                {{-- ✅ BARU: status pembayaran --}}
+                                <td class="px-6 py-4 text-center">
+                                    @if(in_array($peminjaman->status, ['diverifikasi', 'dipinjam', 'terlambat', 'dikembalikan']))
+                                        <span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold
+                                            {{ $peminjaman->status_pembayaran === 'lunas' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
+                                            {{ $peminjaman->status_pembayaran === 'lunas' ? 'LUNAS' : 'BELUM LUNAS' }}
+                                        </span>
+                                    @else
+                                        <span class="text-slate-300">—</span>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex items-center justify-end gap-3">
-                                        <a href="{{ route('user.peminjaman.show', $peminjaman) }}" 
+                                        <a href="{{ route('user.peminjaman.show', $peminjaman) }}"
                                            class="text-slate-500 hover:text-teal-600 font-medium transition">
                                             Detail
                                         </a>
@@ -93,10 +107,9 @@
                 </table>
             @endif
         </div>
-        
         @if($peminjamans->hasPages())
             <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-                {{ $peminjamans->links() }}
+    {{ $peminjamans->links() }}
             </div>
         @endif
     </div>

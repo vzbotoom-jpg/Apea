@@ -39,4 +39,17 @@ class Notifikasi extends Model
         $this->is_read = true;
         $this->save();
     }
+
+    // Tambahkan di dalam class Notifikasi
+public static function kirim($userId, $title, $message, $type = 'info', $link = null)
+{
+    return static::create([
+        'user_id' => $userId,
+        'title'   => $title,
+        'message' => $message,
+        'type'    => $type,   // info | success | warning | danger | payment
+        'is_read' => false,
+        'link'    => $link,
+    ]);
+}
 }

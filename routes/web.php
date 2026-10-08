@@ -19,6 +19,7 @@ use App\Http\Controllers\User\DashboardController as UserDashboardController;
 use App\Http\Controllers\User\AlatController as UserAlatController;
 use App\Http\Controllers\User\PeminjamanController as UserPeminjamanController;
 use App\Http\Controllers\User\ProfileController as UserProfileController;
+use App\Http\Controllers\User\NotifikasiController;
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -194,4 +195,8 @@ Route::prefix('user')->name('user.')->middleware(['auth', 'user'])->group(functi
     // Profile
     Route::get('profile', [UserProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [UserProfileController::class, 'update'])->name('profile.update');
+
+    Route::get('notifikasi', [NotifikasiController::class, 'index'])->name('notifikasi.index');
+    Route::get('notifikasi/{notification}', [NotifikasiController::class, 'show'])->name('notifikasi.show');
+    Route::post('notifikasi/read-all', [NotifikasiController::class, 'readAll'])->name('notifikasi.readAll');
 });

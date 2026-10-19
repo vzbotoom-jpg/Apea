@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Alat;
+use App\Models\MutasiAlat;
 use App\Models\Peminjaman;
 use App\Models\Notifikasi;
 use App\Helpers\Helper;
@@ -56,13 +58,15 @@ class PeminjamanController extends Controller
 
     public function verifikasi(Peminjaman $peminjaman)
     {
-        if ($peminjaman->status !== 'menunggu') {
-            return back()->with('error', 'Peminjaman ini sudah diverifikasi!');
-        }
-
         DB::beginTransaction();
 
         try {
+            $peminjaman = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if ($peminjaman->status !== 'menunggu') {
+                DB::rollBack();
+                return back()->with('error', 'Peminjaman ini sudah diverifikasi!');
+            }
+
             $peminjaman->status = 'diverifikasi';
             $peminjaman->petugas_id = auth()->id();
             $peminjaman->tanggal_verifikasi = now();
@@ -92,16 +96,19 @@ class PeminjamanController extends Controller
 
     public function batalkan(Peminjaman $peminjaman)
     {
-        if (!in_array($peminjaman->status, ['menunggu', 'diverifikasi'])) {
-            return back()->with('error', 'Peminjaman tidak dapat dibatalkan!');
-        }
-
         DB::beginTransaction();
 
         try {
-            // Restore stock
+            $peminjaman = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if (!in_array($peminjaman->status, ['menunggu', 'diverifikasi'], true)) {
+                DB::rollBack();
+                return back()->with('error', 'Peminjaman tidak dapat dibatalkan!');
+            }
+
             foreach ($peminjaman->detailPeminjamans as $detail) {
-                $detail->alat->addStock($detail->jumlah);
+                $alat = Alat::whereKey($detail->alat_id)->lockForUpdate()->firstOrFail();
+                $alat->addStock($detail->jumlah);
+                MutasiAlat::catat($alat, 'masuk', $detail->jumlah, "Pembatalan {$peminjaman->kode_peminjaman}", $peminjaman);
             }
 
             $peminjaman->status = 'dibatalkan';

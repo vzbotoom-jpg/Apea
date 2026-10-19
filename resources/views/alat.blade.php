@@ -37,7 +37,7 @@
 
         {{-- Filter Kategori --}}
         <div class="flex flex-wrap gap-2 mb-8">
-            <a href="{{ route('alat') }}"
+            <a href="{{ route('alat', ['search' => request('search')]) }}"
                class="px-4 py-2 rounded-full text-sm font-semibold transition {{ !request('kategori') ? 'bg-teal-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-teal-400' }}">
                 Semua
             </a>
@@ -52,58 +52,16 @@
         <p class="text-sm text-slate-500 mb-6"><strong>{{ $alats->total() }}</strong> alat ditemukan</p>
 
         {{-- Grid Alat --}}
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-    @forelse($alats as $alat)
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition group overflow-hidden">
-
-            {{-- ✅ GAMBAR ALAT + BADGE STOK OVERLAY --}}
-            <div class="aspect-[4/3] bg-slate-100 relative overflow-hidden">
-                @if($alat->gambar)
-                    <img src="{{ asset('storage/' . $alat->gambar) }}" alt="{{ $alat->nama_alat }}"
-                         class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
-                @else
-                    {{-- Placeholder jika alat belum punya foto --}}
-                    <div class="w-full h-full flex items-center justify-center text-slate-300">
-                        <svg class="w-12 h-12" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                        </svg>
-                    </div>
-                @endif
-
-                @if($alat->stok_tersedia > 0)
-                    <span class="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100/95 text-emerald-700 shadow-sm backdrop-blur">
-                        Tersedia: {{ $alat->stok_tersedia }}
-                    </span>
-                @else
-                    <span class="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100/95 text-red-700 shadow-sm backdrop-blur">
-                        Stok Habis
-                    </span>
-                @endif
-            </div>
-
-            {{-- Isi kartu --}}
-            <div class="p-5">
-                <h3 class="font-bold text-slate-900 group-hover:text-teal-600 transition line-clamp-1">{{ $alat->nama_alat }}</h3>
-                <p class="text-xs font-mono text-slate-400 mt-0.5">{{ $alat->kode_alat }}</p>
-                <p class="text-xs text-slate-500 mt-2">{{ $alat->kategori->nama_kategori ?? 'Umum' }}</p>
-
-                <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <span class="text-sm font-bold text-teal-600">
-                        Rp {{ number_format($alat->harga_sewa_per_hari, 0, ',', '.') }}<span class="text-xs font-normal text-slate-400">/hari</span>
-                    </span>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $alat->kondisi_badge }}">
-                        {{ ucfirst(str_replace('_', ' ', $alat->kondisi)) }}
-                    </span>
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            @forelse($alats as $alat)
+                <x-catalog.alat-card :alat="$alat" />
+            @empty
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+                    <p class="text-sm font-bold text-slate-900">Alat tidak ditemukan</p>
+                    <p class="mt-1 text-xs text-slate-500">Coba kata kunci lain atau reset filter kategori.</p>
                 </div>
-            </div>
+            @endforelse
         </div>
-    @empty
-        <div class="col-span-full p-12 text-center bg-white rounded-2xl border border-dashed border-slate-300">
-            <p class="text-sm font-bold text-slate-900">Alat tidak ditemukan</p>
-            <p class="text-xs text-slate-500 mt-1">Coba kata kunci lain atau reset filter kategori.</p>
-        </div>
-    @endforelse
-</div>
 
         <div class="mt-10">{{ $alats->links() }}</div>
 

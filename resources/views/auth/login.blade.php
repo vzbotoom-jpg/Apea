@@ -51,7 +51,7 @@
         <div>
             <button type="submit" 
                     class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-sm shadow-sm text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition duration-200">
-                Masuk ke Dashboard
+                Login
             </button>
         </div>
     </form>

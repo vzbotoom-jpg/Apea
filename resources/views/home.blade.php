@@ -227,36 +227,9 @@
                 <p class="text-slate-500 text-lg">Belum ada data alat.</p>
             </div>
         @else
-            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 @foreach($alatTerbaru as $alat)
-                    <div class="group cursor-pointer">
-                        <div class="aspect-[4/3] bg-slate-100 rounded-xl overflow-hidden mb-4 relative shadow-sm group-hover:shadow-xl transition duration-300">
-                            @if($alat->gambar)
-                                <img src="{{ asset('storage/' . $alat->gambar) }}" alt="{{ $alat->nama_alat }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
-                            @else
-                                <div class="w-full h-full flex items-center justify-center text-slate-300">
-                                    <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                </div>
-                            @endif
-                            <div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2.5 py-1 text-xs font-bold text-slate-900 rounded-md shadow-sm">
-                                {{ $alat->stok_tersedia > 0 ? 'Tersedia' : 'Habis' }}
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-xs text-teal-600 font-bold uppercase tracking-wider mb-1">{{ $alat->kategori->nama_kategori ?? 'Umum' }}</p>
-                            <h3 class="text-lg font-bold text-slate-900 group-hover:text-teal-600 transition line-clamp-1">{{ $alat->nama_alat }}</h3>
-                            <p class="text-sm text-slate-500 mt-1 font-mono">{{ $alat->kode_alat }}</p>
-                            
-                            <div class="mt-3 flex items-center justify-between">
-                                @if($alat->harga_sewa_per_hari > 0)
-                                    <span class="text-sm font-bold text-slate-900">Rp {{ number_format($alat->harga_sewa_per_hari, 0, ',', '.') }}<span class="text-xs font-normal text-slate-400">/hari</span></span>
-                                @else
-                                    <span class="text-sm font-bold text-emerald-600">Gratis</span>
-                                @endif
-                                <a href="{{ route('user.alat.show', $alat) }}" class="text-teal-600 text-sm font-semibold hover:underline">Detail &rarr;</a>
-                            </div>
-                        </div>
-                    </div>
+                    <x-catalog.alat-card :alat="$alat" :detail-url="route('user.alat.show', $alat)" />
                 @endforeach
             </div>
         @endif

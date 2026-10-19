@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Peminjaman;
 use App\Models\DetailPeminjaman;
 use App\Models\Alat;
+use App\Models\MutasiAlat;
 use App\Models\Notifikasi;
 use App\Models\LogActivity;
 use App\Helpers\Helper;
@@ -178,7 +179,7 @@ class PeminjamanController extends Controller
 
             // Create details
             foreach ($request->alat_ids as $alatId) {
-                $alat = Alat::find($alatId);
+                $alat = Alat::whereKey($alatId)->lockForUpdate()->firstOrFail();
                 
                 if (!$alat->isAvailable()) {
                     DB::rollBack();
@@ -188,7 +189,14 @@ class PeminjamanController extends Controller
                     ], 400);
                 }
 
-                $alat->reduceStock(1);
+                if (!$alat->reduceStock(1)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => "Stok alat {$alat->nama_alat} tidak mencukupi!",
+                    ], 400);
+                }
+                MutasiAlat::catat($alat, 'keluar', 1, "Reservasi {$kodePeminjaman}", $peminjaman);
 
                 DetailPeminjaman::create([
                     'peminjaman_id' => $peminjaman->id,
@@ -199,8 +207,8 @@ class PeminjamanController extends Controller
                 ]);
             }
 
-            // Send notification to admin
-            $this->sendNotificationToAdmin($peminjaman);
+            // Notify admins and staff who can verify the request.
+            $this->sendNotificationToStaff($peminjaman);
 
             DB::commit();
 
@@ -233,26 +241,36 @@ class PeminjamanController extends Controller
             ], 403);
         }
 
-        if ($peminjaman->status !== 'menunggu') {
-            return response()->json([
-                'status' => false,
-                'message' => 'Peminjaman tidak dapat dibatalkan karena sudah diverifikasi!',
-            ], 400);
-        }
-
         DB::beginTransaction();
 
         try {
-            // Restore stock
+            $peminjaman = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if ($peminjaman->user_id !== auth()->id()) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Anda tidak memiliki akses.',
+                ], 403);
+            }
+            if ($peminjaman->status !== 'menunggu') {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Peminjaman tidak dapat dibatalkan karena sudah diverifikasi!',
+                ], 400);
+            }
+
             foreach ($peminjaman->detailPeminjamans as $detail) {
-                $detail->alat->addStock($detail->jumlah);
+                $alat = Alat::whereKey($detail->alat_id)->lockForUpdate()->firstOrFail();
+                $alat->addStock($detail->jumlah);
+                MutasiAlat::catat($alat, 'masuk', $detail->jumlah, "Pembatalan {$peminjaman->kode_peminjaman}", $peminjaman);
             }
 
             $peminjaman->status = 'dibatalkan';
             $peminjaman->save();
 
             DB::commit();
-
+            $this->sendNotificationToStaff($peminjaman, 'dibatalkan');
             LogActivity::log(auth()->id(), "Membatalkan peminjaman {$peminjaman->kode_peminjaman}", 'API');
 
             return response()->json([
@@ -274,36 +292,22 @@ class PeminjamanController extends Controller
      */
     public function verifikasi(Peminjaman $peminjaman)
     {
-        if ($peminjaman->status !== 'menunggu') {
-            return response()->json([
-                'status' => false,
-                'message' => 'Peminjaman sudah diverifikasi atau dibatalkan!',
-            ], 400);
-        }
-
-        // Check availability
-        foreach ($peminjaman->detailPeminjamans as $detail) {
-            $alat = Alat::find($detail->alat_id);
-            if (!$alat->isAvailable()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => "Alat {$alat->nama_alat} tidak tersedia!",
-                ], 400);
-            }
-        }
-
         DB::beginTransaction();
 
         try {
+            $peminjaman = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if ($peminjaman->status !== 'menunggu') {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Peminjaman sudah diverifikasi atau dibatalkan!',
+                ], 400);
+            }
+
             $peminjaman->status = 'diverifikasi';
             $peminjaman->petugas_id = auth()->id();
             $peminjaman->tanggal_verifikasi = now();
             $peminjaman->save();
-
-            // Reduce stock
-            foreach ($peminjaman->detailPeminjamans as $detail) {
-                $detail->alat->reduceStock($detail->jumlah);
-            }
 
             // Send notification
             Helper::sendNotification(
@@ -386,20 +390,22 @@ class PeminjamanController extends Controller
             'alasan' => 'required|string|max:500',
         ]);
 
-        if (!in_array($peminjaman->status, ['menunggu', 'diverifikasi'])) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Peminjaman tidak dapat dibatalkan!',
-            ], 400);
-        }
-
         DB::beginTransaction();
 
         try {
-            if ($peminjaman->status === 'diverifikasi') {
-                foreach ($peminjaman->detailPeminjamans as $detail) {
-                    $detail->alat->addStock($detail->jumlah);
-                }
+            $peminjaman = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if (!in_array($peminjaman->status, ['menunggu', 'diverifikasi'], true)) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Peminjaman tidak dapat dibatalkan!',
+                ], 400);
+            }
+
+            foreach ($peminjaman->detailPeminjamans as $detail) {
+                $alat = Alat::whereKey($detail->alat_id)->lockForUpdate()->firstOrFail();
+                $alat->addStock($detail->jumlah);
+                MutasiAlat::catat($alat, 'masuk', $detail->jumlah, "Pembatalan {$peminjaman->kode_peminjaman}", $peminjaman);
             }
 
             $peminjaman->status = 'dibatalkan';
@@ -476,18 +482,25 @@ class PeminjamanController extends Controller
     }
 
     /**
-     * Send notification to admin
+     * Notify staff who can verify new borrowing requests.
      */
-    private function sendNotificationToAdmin($peminjaman)
+    private function sendNotificationToStaff($peminjaman, $type = 'baru')
     {
-        $admins = \App\Models\User::where('role', 'admin')->get();
+        $staff = \App\Models\User::whereIn('role', ['admin', 'petugas'])->get();
+        $cancelled = $type === 'dibatalkan';
 
-        foreach ($admins as $admin) {
+        foreach ($staff as $recipient) {
             Helper::sendNotification(
-                $admin->id,
-                '📋 Peminjaman Baru',
-                "{$peminjaman->user->name} mengajukan peminjaman {$peminjaman->kode_peminjaman}",
-                'info'
+                $recipient->id,
+                $cancelled ? 'Peminjaman Dibatalkan' : '📋 Peminjaman Baru',
+                $cancelled
+                    ? "{$peminjaman->user->name} membatalkan peminjaman {$peminjaman->kode_peminjaman}"
+                    : "{$peminjaman->user->name} mengajukan peminjaman {$peminjaman->kode_peminjaman}",
+                $cancelled ? 'warning' : 'info',
+                route(
+                    $recipient->role === 'admin' ? 'admin.peminjaman.show' : 'petugas.peminjaman.show',
+                    $peminjaman
+                )
             );
         }
     }

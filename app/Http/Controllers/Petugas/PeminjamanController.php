@@ -85,34 +85,20 @@ class PeminjamanController extends Controller
 
     public function verifikasi(Peminjaman $peminjaman)
     {
-        // Validasi status
-        if ($peminjaman->status !== 'menunggu') {
-            return back()->with('error', 'Peminjaman ini sudah diverifikasi atau dibatalkan!');
-        }
-
-        // Validasi ketersediaan alat
-        foreach ($peminjaman->detailPeminjamans as $detail) {
-            $alat = Alat::find($detail->alat_id);
-            if (!$alat->isAvailable()) {
-                return back()->with('error', "Alat {$alat->nama_alat} tidak tersedia untuk dipinjam!");
-            }
-        }
-
         DB::beginTransaction();
 
         try {
+            $peminjaman = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if ($peminjaman->status !== 'menunggu') {
+                DB::rollBack();
+                return back()->with('error', 'Peminjaman ini sudah diverifikasi atau dibatalkan!');
+            }
+
             // Update status
             $peminjaman->status = 'diverifikasi';
             $peminjaman->petugas_id = auth()->id();
             $peminjaman->tanggal_verifikasi = now();
             $peminjaman->save();
-
-            // Kurangi stok alat
-            foreach ($peminjaman->detailPeminjamans as $detail) {
-                $alat = Alat::find($detail->alat_id);
-                $alat->reduceStock($detail->jumlah);
-                MutasiAlat::catat($alat, 'keluar', $detail->jumlah, "Serah terima {$peminjaman->kode_peminjaman}", $peminjaman);
-            }
 
             // Send notification to user
             Helper::sendNotification(
@@ -154,7 +140,7 @@ class PeminjamanController extends Controller
             $peminjaman->tanggal_ambil = now();
             $peminjaman->save();
 
-            // Update stok alat (sudah dikurangi saat verifikasi)
+            // The stock was reserved when the request was submitted.
 
             // Send notification to user
             Helper::sendNotification(
@@ -183,11 +169,6 @@ class PeminjamanController extends Controller
 
     public function batalkan(Peminjaman $peminjaman, Request $request)
     {
-        // Validasi status
-        if (!in_array($peminjaman->status, ['menunggu', 'diverifikasi'])) {
-            return back()->with('error', 'Peminjaman tidak dapat dibatalkan!');
-        }
-
         $request->validate([
             'alasan' => 'required|string|max:500',
         ]);
@@ -195,12 +176,17 @@ class PeminjamanController extends Controller
         DB::beginTransaction();
 
         try {
-            // Kembalikan stok jika sudah diverifikasi
-            if ($peminjaman->status === 'diverifikasi') {
-                foreach ($peminjaman->detailPeminjamans as $detail) {
-                    $detail->alat->addStock($detail->jumlah);
-                    MutasiAlat::catat($detail->alat, 'masuk', $detail->jumlah, "Pembatalan {$peminjaman->kode_peminjaman}", $peminjaman);
-                }
+            $peminjaman = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if (!in_array($peminjaman->status, ['menunggu', 'diverifikasi'], true)) {
+                DB::rollBack();
+                return back()->with('error', 'Peminjaman tidak dapat dibatalkan!');
+            }
+
+            // The reservation is created at submission, so every pre-handover cancellation restores it.
+            foreach ($peminjaman->detailPeminjamans as $detail) {
+                $alat = Alat::whereKey($detail->alat_id)->lockForUpdate()->firstOrFail();
+                $alat->addStock($detail->jumlah);
+                MutasiAlat::catat($alat, 'masuk', $detail->jumlah, "Pembatalan {$peminjaman->kode_peminjaman}", $peminjaman);
             }
 
             // Update status

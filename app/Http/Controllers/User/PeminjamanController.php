@@ -91,7 +91,7 @@ class PeminjamanController extends Controller
             // Create detail peminjaman
             $totalSewa = 0;
             foreach ($request->alat_ids as $alatId) {
-                $alat = Alat::find($alatId);
+                $alat = Alat::whereKey($alatId)->lockForUpdate()->firstOrFail();
                 
                 // Check availability
                 if (!$alat->isAvailable()) {
@@ -99,8 +99,12 @@ class PeminjamanController extends Controller
                     return back()->with('error', "Alat {$alat->nama_alat} tidak tersedia!");
                 }
 
-                // Reduce stock
-                $alat->reduceStock(1);
+                // Reserve stock when the request is submitted.
+                if (!$alat->reduceStock(1)) {
+                    DB::rollBack();
+                    return back()->with('error', "Stok alat {$alat->nama_alat} tidak mencukupi!");
+                }
+                MutasiAlat::catat($alat, 'keluar', 1, "Reservasi {$kodePeminjaman}", $peminjaman);
 
                 // Create detail
                 $detail = DetailPeminjaman::create([
@@ -114,8 +118,8 @@ class PeminjamanController extends Controller
                 $totalSewa += $detail->subtotal;
             }
 
-            // Send notification to admin/petugas
-            $this->sendNotificationToAdmin($peminjaman);
+            // Notify both admins and staff who can verify the request.
+            $this->sendNotificationToStaff($peminjaman);
 
             DB::commit();
 
@@ -150,18 +154,19 @@ class PeminjamanController extends Controller
             abort(403);
         }
 
-        // Only can cancel if status is 'menunggu'
-        if ($peminjaman->status !== 'menunggu') {
-            return back()->with('error', 'Peminjaman tidak dapat dibatalkan karena sudah diverifikasi!');
-        }
-
         DB::beginTransaction();
 
         try {
-            // Restore stock
+            $peminjaman = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if ($peminjaman->status !== 'menunggu') {
+                DB::rollBack();
+                return back()->with('error', 'Peminjaman tidak dapat dibatalkan karena sudah diverifikasi!');
+            }
+
             foreach ($peminjaman->detailPeminjamans as $detail) {
-                $detail->alat->addStock($detail->jumlah);
-                MutasiAlat::catat($detail->alat, 'masuk', $detail->jumlah, "Pembatalan {$peminjaman->kode_peminjaman}", $peminjaman);
+                $alat = Alat::whereKey($detail->alat_id)->lockForUpdate()->firstOrFail();
+                $alat->addStock($detail->jumlah);
+                MutasiAlat::catat($alat, 'masuk', $detail->jumlah, "Pembatalan {$peminjaman->kode_peminjaman}", $peminjaman);
             }
 
             $peminjaman->status = 'dibatalkan';
@@ -170,7 +175,7 @@ class PeminjamanController extends Controller
             DB::commit();
 
             // Send notification
-            $this->sendNotificationToAdmin($peminjaman, 'dibatalkan');
+            $this->sendNotificationToStaff($peminjaman, 'dibatalkan');
 
             return redirect()->route('user.peminjaman.index')
                 ->with('success', 'Peminjaman berhasil dibatalkan!');
@@ -181,23 +186,25 @@ class PeminjamanController extends Controller
         }
     }
 
-    private function sendNotificationToAdmin($peminjaman, $type = 'baru')
+    private function sendNotificationToStaff($peminjaman, $type = 'baru')
     {
-        // Get all admins
-        $admins = User::where('role', 'admin')->get();
+        $staff = User::whereIn('role', ['admin', 'petugas'])->get();
 
         $title = $type === 'baru' ? 'Peminjaman Baru' : 'Peminjaman Dibatalkan';
         $message = $type === 'baru' 
             ? "{$peminjaman->user->name} mengajukan peminjaman {$peminjaman->kode_peminjaman}"
             : "{$peminjaman->user->name} membatalkan peminjaman {$peminjaman->kode_peminjaman}";
 
-        foreach ($admins as $admin) {
+        foreach ($staff as $recipient) {
             Helper::sendNotification(
-                $admin->id,
+                $recipient->id,
                 $title,
                 $message,
                 $type === 'baru' ? 'info' : 'warning',
-                route('admin.peminjaman.show', $peminjaman)
+                route(
+                    $recipient->role === 'admin' ? 'admin.peminjaman.show' : 'petugas.peminjaman.show',
+                    $peminjaman
+                )
             );
         }
     }

@@ -42,7 +42,7 @@ class AlatController extends Controller
         $order = $request->get('order', 'asc');
         $query->orderBy($sort, $order);
 
-        $alats = $query->paginate(12);
+        $alats = $query->paginate(12)->withQueryString();
         $kategoris = Kategori::where('status', 'active')->get();
 
         return view('user.alat.index', compact('alats', 'kategoris'));

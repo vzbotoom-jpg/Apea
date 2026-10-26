@@ -54,7 +54,20 @@ class AlatController extends Controller
             })->with('peminjaman.user');
         }]);
 
-        return view('petugas.alat.show', compact('alat'));
+        $totalDipinjamkan = $alat->detailPeminjamans->sum('jumlah');
+        $riwayatPeminjaman = $alat->detailPeminjamans()
+            ->with('peminjaman.user')
+            ->latest()
+            ->limit(10)
+            ->get();
+        $mutasi = $alat->mutasis()->limit(10)->get();
+
+        return view('petugas.alat.show', compact(
+            'alat',
+            'totalDipinjamkan',
+            'riwayatPeminjaman',
+            'mutasi'
+        ));
     }
 
     public function getAvailableAlats(Request $request)

@@ -207,7 +207,7 @@
                     {{-- Tombol aksi hanya saat menunggu --}}
                     @if($peminjaman->status_perpanjangan === 'menunggu')
                         <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t {{ $ext[1] }}">
-                            <form action="{{ route('petugas.peminjaman.perpanjang.setujui', $peminjaman) }}" method="POST" class="inline-block"
+                            <form action="{{ route('petugas.peminjaman.perpanjangan.setujui', $peminjaman) }}" method="POST" class="inline-block"
                                   onsubmit="return confirm('Setujui perpanjangan ini? Jatuh tempo akan diperbarui menjadi {{ $peminjaman->tanggal_perpanjangan?->format('d M Y') }}.')">
                                 @csrf
                                 <button type="submit" class="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition shadow-sm flex items-center gap-2">
@@ -215,7 +215,7 @@
                                     Setujui Perpanjangan
                                 </button>
                             </form>
-                            <form action="{{ route('petugas.peminjaman.perpanjang.tolak', $peminjaman) }}" method="POST" class="inline-block"
+                            <form action="{{ route('petugas.peminjaman.perpanjangan.tolak', $peminjaman) }}" method="POST" class="inline-block"
                                   onsubmit="return confirm('Tolak pengajuan perpanjangan ini?')">
                                 @csrf
                                 <button type="submit" class="px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-bold rounded-lg hover:bg-red-50 transition shadow-sm flex items-center gap-2">

@@ -27,8 +27,8 @@ use App\Http\Controllers\Api\ProfileController;
 // PUBLIC ROUTES (Tidak perlu login)
 // ============================================
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
 // Public Alat (read-only)
 Route::get('/alat', [AlatController::class, 'index']);

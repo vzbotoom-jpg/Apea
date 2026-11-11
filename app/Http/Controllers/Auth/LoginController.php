@@ -20,9 +20,19 @@ class LoginController extends Controller
         $remember = $request->has('remember');
 
         if (Auth::attempt($credentials, $remember)) {
-            $request->session()->regenerate();
-
             $user = Auth::user();
+
+            if ($user->status === 'inactive') {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'Akun Anda dinonaktifkan. Silakan hubungi administrator.',
+                ])->onlyInput('email');
+            }
+
+            $request->session()->regenerate();
             
             // Log aktivitas login
             // activity()->log('User logged in');

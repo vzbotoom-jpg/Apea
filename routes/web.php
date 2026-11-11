@@ -25,6 +25,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\Auth\VerificationController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\QrController;
 use App\Http\Controllers\PembayaranController;
@@ -57,7 +58,7 @@ Route::get('/privacy-choices', [HomeController::class, 'privacyChoices'])->name(
 // ============================================
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:5,1');
     Route::get('/register', [RegisterController::class, 'showRegisterForm'])->name('register');
     Route::post('/register', [RegisterController::class, 'register']);
     Route::get('/model', [HomeController::class, 'model'])->name('model');
@@ -70,6 +71,17 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+
+// ============================================
+// EMAIL VERIFICATION ROUTES
+// ============================================
+Route::middleware('auth')->group(function () {
+    Route::get('/email/verify', [VerificationController::class, 'notice'])->name('verification.notice');
+    Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
+        ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+    Route::post('/email/verification-notification', [VerificationController::class, 'resend'])
+        ->middleware('throttle:6,1')->name('verification.resend');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/qr/alat/{alat}', [QrController::class, 'alat'])->name('qr.alat');
@@ -87,6 +99,7 @@ Route::middleware(['auth', 'user'])->group(function () {
 Route::prefix('pembayaran')->name('pembayaran.')->middleware('auth')->group(function () {
     Route::get('/', [PembayaranController::class, 'index'])->name('index');
     Route::get('{pembayaran}', [PembayaranController::class, 'show'])->name('show');
+    Route::get('{pembayaran}/bukti', [PembayaranController::class, 'bukti'])->name('bukti');
     Route::post('{pembayaran}/setujui', [PembayaranController::class, 'setujui'])->name('setujui');
     Route::post('{pembayaran}/tolak', [PembayaranController::class, 'tolak'])->name('tolak');
 });

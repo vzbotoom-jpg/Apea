@@ -9,6 +9,8 @@ use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PembayaranController extends Controller
 {
@@ -108,6 +110,21 @@ class PembayaranController extends Controller
         $pembayaran->load(['user', 'peminjaman', 'verifier']);
 
         return view('pembayaran.show', compact('pembayaran'));
+    }
+
+    public function bukti(Pembayaran $pembayaran)
+    {
+        // Akses hanya untuk pemilik pembayaran atau staf (admin/petugas)
+        $user = auth()->user();
+        if ($pembayaran->user_id !== $user->id && !in_array($user->role, ['admin', 'petugas'])) {
+            abort(403, 'Akses tidak diizinkan.');
+        }
+
+        if (!$pembayaran->bukti_path || !Storage::disk('private')->exists($pembayaran->bukti_path)) {
+            abort(404, 'Bukti pembayaran tidak ditemukan.');
+        }
+
+        return Storage::disk('private')->response($pembayaran->bukti_path);
     }
 
     public function setujui(Pembayaran $pembayaran)

@@ -40,7 +40,7 @@ Route::get('/kategori/{kategori}/alat', [KategoriController::class, 'alatByKateg
 // PROTECTED ROUTES (Harus login)
 // ============================================
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     // ============================================
     // AUTH

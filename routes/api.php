@@ -1,5 +1,3 @@
-// routes/api.php
-
 <?php
 
 use Illuminate\Http\Request;
@@ -164,9 +162,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::prefix('users')->group(function () {
             Route::get('/', [ProfileController::class, 'index']);
             Route::post('/', [ProfileController::class, 'store']);
-            Route::get('/{user}', [ProfileController::class, 'show']);
-            Route::put('/{user}', [ProfileController::class, 'update']);
-            Route::delete('/{user}', [ProfileController::class, 'destroy']);
+            Route::get('/{user}', [ProfileController::class, 'showUser']);
+            Route::put('/{user}', [ProfileController::class, 'updateUser']);
+            Route::delete('/{user}', [ProfileController::class, 'destroyUser']);
             Route::patch('/{user}/toggle-status', [ProfileController::class, 'toggleStatus']);
         });
 

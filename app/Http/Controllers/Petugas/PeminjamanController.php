@@ -10,6 +10,7 @@ use App\Models\MutasiAlat;
 use App\Models\User;
 use App\Models\Notifikasi;
 use App\Models\Setting;
+use App\Models\Pembayaran;
 use App\Helpers\Helper;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -226,17 +227,52 @@ class PeminjamanController extends Controller
             'metode' => 'required|in:tunai,transfer',
         ]);
 
-        $peminjaman->update([
-            'status_pembayaran' => 'lunas',
-            'metode_pembayaran' => $request->metode,
-            'tanggal_bayar' => now(),
-            'dibayar_oleh' => auth()->id(),
-        ]);
+        $pembayaran = DB::transaction(function () use ($request, $peminjaman) {
+            $loan = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            $amountDue = $loan->getSisaTagihan();
+
+            if ($amountDue === 0) {
+                return null;
+            }
+
+            if ($loan->pembayarans()->where('status', 'menunggu')->exists()) {
+                return false;
+            }
+
+            $method = $request->metode === 'transfer' ? 'transfer_bank' : 'tunai';
+            $payment = Pembayaran::create([
+                'peminjaman_id' => $loan->id,
+                'user_id' => $loan->user_id,
+                'metode' => $method,
+                'nominal' => $amountDue,
+                'status' => 'disetujui',
+                'verified_by' => auth()->id(),
+                'verified_at' => now(),
+            ]);
+
+            $loan->denda?->markAsPaid();
+            $loan->update([
+                'status_pembayaran' => 'lunas',
+                'metode_pembayaran' => $request->metode,
+                'tanggal_bayar' => now(),
+                'dibayar_oleh' => auth()->id(),
+            ]);
+
+            return $payment;
+        });
+
+        if ($pembayaran === null) {
+            return back()->with('error', 'Tagihan peminjaman ini sudah lunas.');
+        }
+
+        if ($pembayaran === false) {
+            return back()->with('error', 'Pembayaran online masih menunggu verifikasi.');
+        }
 
         Helper::sendNotification(
             $peminjaman->user_id,
             '💰 Pembayaran Diterima',
-            "Pembayaran {$peminjaman->kode_peminjaman} sebesar Rp " . number_format($peminjaman->total_bayar, 0, ',', '.') . " telah dikonfirmasi ({$request->metode}).",
+            "Pembayaran {$peminjaman->kode_peminjaman} sebesar Rp " . number_format($pembayaran->nominal, 0, ',', '.') . " telah dikonfirmasi ({$request->metode}).",
             'success',
             route('user.peminjaman.show', $peminjaman)
         );
@@ -250,67 +286,77 @@ class PeminjamanController extends Controller
     }
 
     public function setujuiPerpanjangan(Peminjaman $peminjaman)
-{
-    if ($peminjaman->status_perpanjangan !== 'menunggu') {
-        return back()->with('error', 'Tidak ada pengajuan perpanjangan yang menunggu.');
-    }
+    {
+        $approved = DB::transaction(function () use ($peminjaman) {
+            $loan = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if ($loan->status !== 'dipinjam' || $loan->status_perpanjangan !== 'menunggu') {
+                return null;
+            }
 
-    DB::beginTransaction();
-    try {
-        $peminjaman->update([
-            'tanggal_jatuh_tempo' => $peminjaman->tanggal_perpanjangan,
-            'status_perpanjangan' => 'disetujui',
-            'approved_by'         => auth()->id(),
-        ]);
+            $loan->update([
+                'tanggal_jatuh_tempo' => $loan->tanggal_perpanjangan,
+                'status_perpanjangan' => 'disetujui',
+                'approved_by' => auth()->id(),
+            ]);
 
-        Helper::sendNotification(
-            $peminjaman->user_id,
-            '✅ Perpanjangan Disetujui',
-            "Perpanjangan {$peminjaman->kode_peminjaman} disetujui. Jatuh tempo baru: {$peminjaman->tanggal_jatuh_tempo->format('d/m/Y')}.",
-            'success',
-            route('user.peminjaman.show', $peminjaman)
-        );
+            Helper::sendNotification(
+                $loan->user_id,
+                '✅ Perpanjangan Disetujui',
+                "Perpanjangan {$loan->kode_peminjaman} disetujui. Jatuh tempo baru: {$loan->tanggal_jatuh_tempo->format('d/m/Y')}.",
+                'success',
+                route('user.peminjaman.show', $loan)
+            );
 
-        DB::commit();
+            return $loan;
+        });
+
+        if (! $approved) {
+            return back()->with('error', 'Perpanjangan hanya dapat disetujui saat peminjaman masih aktif dan permintaan menunggu.');
+        }
 
         activity()
             ->causedBy(auth()->user())
-            ->performedOn($peminjaman)
-            ->log("Menyetujui perpanjangan {$peminjaman->kode_peminjaman}");
+            ->performedOn($approved)
+            ->log("Menyetujui perpanjangan {$approved->kode_peminjaman}");
 
         return back()->with('success', '✅ Perpanjangan berhasil disetujui!');
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-    }
-}
-
-public function tolakPerpanjangan(Peminjaman $peminjaman)
-{
-    if ($peminjaman->status_perpanjangan !== 'menunggu') {
-        return back()->with('error', 'Tidak ada pengajuan perpanjangan yang menunggu.');
     }
 
-    $peminjaman->update([
-        'status_perpanjangan' => 'ditolak',
-        'approved_by'         => auth()->id(),
-    ]);
+    public function tolakPerpanjangan(Peminjaman $peminjaman)
+    {
+        $rejected = DB::transaction(function () use ($peminjaman) {
+            $loan = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if ($loan->status !== 'dipinjam' || $loan->status_perpanjangan !== 'menunggu') {
+                return null;
+            }
 
-    Helper::sendNotification(
-        $peminjaman->user_id,
-        '❌ Perpanjangan Ditolak',
-        "Pengajuan perpanjangan {$peminjaman->kode_peminjaman} ditolak. Harap kembalikan sesuai jatuh tempo.",
-        'error',
-        route('user.peminjaman.show', $peminjaman)
-    );
+            $loan->update([
+                'status_perpanjangan' => 'ditolak',
+                'approved_by' => auth()->id(),
+            ]);
 
-    activity()
-        ->causedBy(auth()->user())
-        ->performedOn($peminjaman)
-        ->log("Menolak perpanjangan {$peminjaman->kode_peminjaman}");
+            Helper::sendNotification(
+                $loan->user_id,
+                '❌ Perpanjangan Ditolak',
+                "Pengajuan perpanjangan {$loan->kode_peminjaman} ditolak. Harap kembalikan sesuai jatuh tempo.",
+                'error',
+                route('user.peminjaman.show', $loan)
+            );
 
-    return back()->with('success', '❌ Perpanjangan ditolak.');
-}
+            return $loan;
+        });
+
+        if (! $rejected) {
+            return back()->with('error', 'Perpanjangan hanya dapat ditolak saat peminjaman masih aktif dan permintaan menunggu.');
+        }
+
+        activity()
+            ->causedBy(auth()->user())
+            ->performedOn($rejected)
+            ->log("Menolak perpanjangan {$rejected->kode_peminjaman}");
+
+        return back()->with('success', '❌ Perpanjangan ditolak.');
+    }
 
     public function getDetail(Peminjaman $peminjaman)
     {

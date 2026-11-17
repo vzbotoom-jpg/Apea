@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Notification;
+use App\Helpers\Helper;
 use App\Models\Peminjaman;
 use Illuminate\Console\Command;
 
@@ -49,11 +49,6 @@ class SendDueReminders extends Command
 
     private function notify(int $userId, string $title, string $message): void
     {
-        Notification::create([
-            'user_id' => $userId,
-            'title'   => $title,
-            'message' => $message,
-            'is_read' => false,
-        ]);
+        Helper::sendNotification($userId, $title, $message, 'warning');
     }
 }

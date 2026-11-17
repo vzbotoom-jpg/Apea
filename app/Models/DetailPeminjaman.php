@@ -16,6 +16,7 @@ class DetailPeminjaman extends Model
         'alat_id',
         'jumlah',
         'harga_sewa_saat_pinjam',
+        'denda_per_hari_saat_pinjam',
         'subtotal',
     ];
 

@@ -119,7 +119,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::post('alat/{alat}/toggle-status', [AdminAlatController::class, 'toggleStatus'])->name('alat.toggle-status');
     
     // Manajemen User
-    Route::resource('users', AdminUserController::class);
+    Route::resource('users', AdminUserController::class)->except(['show']);
     Route::post('users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus'])->name('users.toggle-status');
     
     // Manajemen Peminjaman

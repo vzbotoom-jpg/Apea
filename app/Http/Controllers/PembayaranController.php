@@ -20,56 +20,66 @@ class PembayaranController extends Controller
         abort_unless($peminjaman->user_id === auth()->id(), 403);
 
         // ✅ PERBAIKAN: Block payment untuk status yang tidak diizinkan
-        $allowedStatus = ['dipinjam', 'terlambat', 'dikembalikan'];
+        $allowedStatus = ['diverifikasi', 'dipinjam', 'terlambat', 'dikembalikan'];
         abort_unless(in_array($peminjaman->status, $allowedStatus), 403, 
             "Pembayaran hanya boleh untuk peminjaman yang sedang berlangsung atau telah dikembalikan.");
+        abort_if($peminjaman->getSisaTagihan() === 0, 403, 'Tagihan peminjaman ini sudah lunas.');
 
         $metodeAktif = json_decode(Setting::get('metode_pembayaran_aktif',
             json_encode(['transfer_bank', 'dana', 'shopeepay', 'gopay', 'tunai'])), true);
         $tujuan = json_decode(Setting::get('tujuan_pembayaran', json_encode([])), true) ?: [];
+        $infoTransfer = Setting::get('info_transfer', '');
+        if ($infoTransfer !== '') {
+            $tujuan['transfer'] = $tujuan['transfer'] ?? $infoTransfer;
+            $tujuan['transfer_bank'] = $tujuan['transfer_bank'] ?? $infoTransfer;
+        }
+        $sisaTagihan = $peminjaman->getSisaTagihan();
 
-        return view('user.pembayaran.bayar', compact('peminjaman', 'metodeAktif', 'tujuan'));
+        return view('user.pembayaran.bayar', compact('peminjaman', 'metodeAktif', 'tujuan', 'sisaTagihan'));
     }
 
     public function store(Request $request, Peminjaman $peminjaman)
     {
         abort_unless($peminjaman->user_id === auth()->id(), 403);
 
-        // ✅ PERBAIKAN 1: Block payment untuk status yang tidak diizinkan
-        $allowedStatus = ['dipinjam', 'terlambat', 'dikembalikan'];
-        abort_unless(in_array($peminjaman->status, $allowedStatus), 403, 
-            "Pembayaran hanya boleh untuk peminjaman yang sedang berlangsung atau telah dikembalikan.");
-
-        // ✅ PERBAIKAN 2: Guard against duplicate pending payment
-        $existingPending = Pembayaran::where('peminjaman_id', $peminjaman->id)
-            ->where('status', 'menunggu')
-            ->exists();
-        
-        abort_if($existingPending, 422, 
-            'Sudah ada pembayaran dalam proses verifikasi. Tunggu hasilnya atau hubungi petugas.');
-
         $metodeAktif = json_decode(Setting::get('metode_pembayaran_aktif',
             json_encode(['transfer_bank', 'dana', 'shopeepay', 'gopay', 'tunai'])), true);
 
-        $request->validate([
+        $validated = $request->validate([
             'metode'  => 'required|in:' . implode(',', $metodeAktif),
-            'nominal' => 'required|integer|min:' . $peminjaman->total_bayar, // ✅ PERBAIKAN 3: nominal >= total_bayar
+            'nominal' => 'required|integer|min:1',
             'bukti'   => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
-        ], [
-            'nominal.min' => 'Nominal pembayaran minimal Rp ' . number_format($peminjaman->total_bayar, 0, ',', '.')
         ]);
 
-        $pembayaran = Pembayaran::create([
-            'peminjaman_id' => $peminjaman->id,
-            'user_id'       => auth()->id(),
-            'metode'        => $request->metode,
-            'nominal'       => $request->nominal,
-            'bukti_path'    => $request->file('bukti')->store(
-                'bukti-pembayaran/' . auth()->id(), 
-                'private'  // ✅ PERBAIKAN 4: Store on private disk
-            ),
-            'status'        => 'menunggu',
-        ]);
+        $pembayaran = DB::transaction(function () use ($request, $peminjaman, $validated) {
+            $loan = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            $allowedStatus = ['diverifikasi', 'dipinjam', 'terlambat', 'dikembalikan'];
+            abort_unless(in_array($loan->status, $allowedStatus, true), 403,
+                'Pembayaran hanya boleh untuk peminjaman yang sedang berlangsung atau telah dikembalikan.');
+
+            abort_if($loan->getSisaTagihan() === 0, 422, 'Tagihan peminjaman ini sudah lunas.');
+            abort_if(
+                Pembayaran::where('peminjaman_id', $loan->id)->where('status', 'menunggu')->exists(),
+                422,
+                'Sudah ada pembayaran dalam proses verifikasi. Tunggu hasilnya atau hubungi petugas.'
+            );
+
+            $amountDue = $loan->getSisaTagihan();
+            $request->validate([
+                'nominal' => "required|integer|min:{$amountDue}",
+            ], [
+                'nominal.min' => 'Nominal pembayaran minimal Rp '.number_format($amountDue, 0, ',', '.'),
+            ]);
+
+            return Pembayaran::create([
+                'peminjaman_id' => $loan->id,
+                'user_id' => auth()->id(),
+                'metode' => $validated['metode'],
+                'nominal' => $validated['nominal'],
+                'bukti_path' => $request->file('bukti')->store('bukti-pembayaran/'.auth()->id(), 'private'),
+                'status' => 'menunggu',
+            ]);
+        });
 
         // ✅ NOTIFIKASI KHUSUS ke petugas & admin (berisi nominal)
         User::whereIn('role', ['petugas', 'admin'])->get()->each(
@@ -130,25 +140,31 @@ class PembayaranController extends Controller
     public function setujui(Pembayaran $pembayaran)
     {
         $this->guardStaff();
-        abort_unless($pembayaran->status === 'menunggu', 422);
 
-        DB::transaction(function () use ($pembayaran) {
-            // ✅ PERBAIKAN 5: Re-check status inside transaction to prevent double approval
-            $pembayaran->refresh();
-            abort_unless($pembayaran->status === 'menunggu', 422, 
-                'Pembayaran ini sudah diproses oleh petugas lain.');
+        $pembayaran = DB::transaction(function () use ($pembayaran) {
+            $payment = Pembayaran::whereKey($pembayaran->id)->lockForUpdate()->firstOrFail();
+            abort_unless($payment->status === 'menunggu', 422, 'Pembayaran ini sudah diproses.');
 
-            $pembayaran->update([
+            $loan = Peminjaman::whereKey($payment->peminjaman_id)->lockForUpdate()->firstOrFail();
+            $amountDue = $loan->getSisaTagihan();
+            abort_if($amountDue === 0, 422, 'Tagihan peminjaman ini sudah lunas.');
+            abort_if($payment->nominal < $amountDue, 422, 'Nominal pembayaran belum mencukupi sisa tagihan.');
+
+            $payment->update([
                 'status'      => 'disetujui',
                 'verified_by' => auth()->id(),
                 'verified_at' => now(),
             ]);
-            $pembayaran->peminjaman->update([
-                'status_pembayaran' => 'lunas',
+
+            $loan->denda?->markAsPaid();
+            $loan->update([
+                'status_pembayaran' => $loan->getSisaTagihan() === 0 ? 'lunas' : 'belum_bayar',
                 'metode_pembayaran' => $pembayaran->metode,
                 'tanggal_bayar'     => now(),
                 'dibayar_oleh'      => auth()->id(),
             ]);
+
+            return $payment->load('peminjaman');
         });
 
         Helper::sendNotification(
@@ -173,12 +189,16 @@ class PembayaranController extends Controller
 
         $request->validate(['catatan' => 'required|string|max:500']);
 
-        $pembayaran->update([
-            'status'      => 'ditolak',
-            'verified_by' => auth()->id(),
-            'verified_at' => now(),
-            'catatan'     => $request->catatan,
-        ]);
+        DB::transaction(function () use ($pembayaran, $request) {
+            $payment = Pembayaran::whereKey($pembayaran->id)->lockForUpdate()->firstOrFail();
+            abort_unless($payment->status === 'menunggu', 422, 'Pembayaran ini sudah diproses.');
+            $payment->update([
+                'status' => 'ditolak',
+                'verified_by' => auth()->id(),
+                'verified_at' => now(),
+                'catatan' => $request->catatan,
+            ]);
+        });
 
         Helper::sendNotification(
             $pembayaran->user_id,

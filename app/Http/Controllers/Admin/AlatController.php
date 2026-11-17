@@ -10,6 +10,8 @@ use App\Models\MutasiAlat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AlatController extends Controller
 {
@@ -100,47 +102,47 @@ class AlatController extends Controller
     {
         $data = $request->validated();
 
-        // Handle image upload
-        if ($request->hasFile('gambar')) {
-            // Delete old image
-            if ($alat->gambar) {
-                Storage::disk('public')->delete($alat->gambar);
-            }
-            
-            $image = $request->file('gambar');
-            $filename = time() . '_' . $image->getClientOriginalName();
-            $path = $image->storeAs('alat', $filename, 'public');
-            $data['gambar'] = $path;
-        }
-
         // Update slug if name changed
         if ($alat->nama_alat !== $data['nama_alat']) {
             $data['slug'] = Str::slug($data['nama_alat']) . '-' . uniqid();
         }
 
-        // Update stok_tersedia if stok changed
-        $oldStok = $alat->stok;
-        if ($alat->stok !== $data['stok']) {
-            $difference = $data['stok'] - $alat->stok;
-            $data['stok_tersedia'] = $alat->stok_tersedia + $difference;
-            if ($data['stok_tersedia'] < 0) {
-                $data['stok_tersedia'] = 0;
+        $oldImage = $alat->gambar;
+        $updated = DB::transaction(function () use ($alat, $data, $request) {
+            $lockedAlat = Alat::whereKey($alat->id)->lockForUpdate()->firstOrFail();
+            $oldStok = $lockedAlat->stok;
+            $stokTersedia = $lockedAlat->availableStockAfterAdjustment((int) $data['stok']);
+
+            if ($stokTersedia === null) {
+                throw ValidationException::withMessages([
+                    'stok' => 'Stok total tidak boleh lebih kecil dari unit yang sedang tidak tersedia.',
+                ]);
             }
-        }
 
-        $alat->update($data);
+            $data['stok_tersedia'] = $stokTersedia;
 
-        // Catat mutasi stok manual jika ada perubahan stok
-        $diff = $alat->stok - $oldStok;
-        if ($diff > 0) {
-            MutasiAlat::catat($alat, 'masuk', $diff, 'Penyesuaian stok manual');
-        }
-        if ($diff < 0) {
-            MutasiAlat::catat($alat, 'keluar', abs($diff), 'Penyesuaian stok manual');
+            if ($request->hasFile('gambar')) {
+                $data['gambar'] = $request->file('gambar')->store('alat', 'public');
+            }
+
+            $lockedAlat->update($data);
+            $difference = $lockedAlat->stok - $oldStok;
+
+            if ($difference > 0) {
+                MutasiAlat::catat($lockedAlat, 'masuk', $difference, 'Penyesuaian stok manual');
+            } elseif ($difference < 0) {
+                MutasiAlat::catat($lockedAlat, 'keluar', abs($difference), 'Penyesuaian stok manual');
+            }
+
+            return $lockedAlat;
+        });
+
+        if ($request->hasFile('gambar') && $oldImage) {
+            Storage::disk('public')->delete($oldImage);
         }
 
         // Log activity
-        activity()->log("Memperbarui alat: {$alat->nama_alat}");
+        activity()->log("Memperbarui alat: {$updated->nama_alat}");
 
         return redirect()->route('admin.alat.index')
             ->with('success', 'Alat berhasil diperbarui!');

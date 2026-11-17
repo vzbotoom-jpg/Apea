@@ -9,6 +9,7 @@ use App\Models\LogActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AlatController extends Controller
@@ -173,36 +174,47 @@ class AlatController extends Controller
             'denda_per_hari' => 'required|integer|min:0',
         ]);
 
-        // Handle image
-        if ($request->hasFile('gambar')) {
-            if ($alat->gambar) {
-                Storage::disk('public')->delete($alat->gambar);
-            }
-            $file = $request->file('gambar');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $path = $file->storeAs('alat', $filename, 'public');
-            $validated['gambar'] = $path;
-        }
-
         // Update slug if name changed
         if ($alat->nama_alat !== $validated['nama_alat']) {
             $validated['slug'] = Str::slug($validated['nama_alat']) . '-' . uniqid();
         }
 
-        // Update stok_tersedia if stok changed
-        if ($alat->stok !== $validated['stok']) {
-            $difference = $validated['stok'] - $alat->stok;
-            $validated['stok_tersedia'] = max(0, $alat->stok_tersedia + $difference);
+        $oldImage = $alat->gambar;
+        $updated = DB::transaction(function () use ($alat, $validated, $request) {
+            $lockedAlat = Alat::whereKey($alat->id)->lockForUpdate()->firstOrFail();
+            $newAvailableStock = $lockedAlat->availableStockAfterAdjustment((int) $validated['stok']);
+
+            if ($newAvailableStock === null) {
+                return null;
+            }
+
+            $validated['stok_tersedia'] = $newAvailableStock;
+            if ($request->hasFile('gambar')) {
+                $validated['gambar'] = $request->file('gambar')->store('alat', 'public');
+            }
+
+            $lockedAlat->update($validated);
+
+            return $lockedAlat;
+        });
+
+        if (! $updated) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Stok total tidak boleh lebih kecil dari unit yang sedang tidak tersedia.',
+            ], 422);
         }
 
-        $alat->update($validated);
+        if ($request->hasFile('gambar') && $oldImage) {
+            Storage::disk('public')->delete($oldImage);
+        }
 
-        LogActivity::log(auth()->id(), "Memperbarui alat: {$alat->nama_alat}", 'API');
+        LogActivity::log(auth()->id(), "Memperbarui alat: {$updated->nama_alat}", 'API');
 
         return response()->json([
             'status' => true,
             'message' => 'Alat berhasil diperbarui!',
-            'data' => $alat,
+            'data' => $updated,
         ]);
     }
 

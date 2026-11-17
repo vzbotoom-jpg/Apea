@@ -20,18 +20,16 @@ class LaporanController extends Controller
         $totalPeminjaman = Peminjaman::count();
         $totalUser = User::where('role', 'user')->count();
         $totalAlat = Alat::count();
-        $peminjamanBulanIni = Peminjaman::whereMonth('created_at', Carbon::now()->month)->count();
+        $peminjamanBulanIni = Peminjaman::whereYear('created_at', Carbon::now()->year)
+            ->whereMonth('created_at', Carbon::now()->month)
+            ->count();
         $totalDenda = Pengembalian::sum('denda');
         $totalPemasukan = \App\Models\Pembayaran::where('status', 'disetujui')->sum('nominal');
 
         // Peminjaman per bulan (chart)
-        $peminjamanPerBulan = Peminjaman::selectRaw('MONTH(tanggal_pinjam) as bulan, COUNT(*) as total')
-            ->whereYear('tanggal_pinjam', Carbon::now()->year)
-            ->groupBy('bulan')
-            ->orderBy('bulan')
-            ->get()
-            ->pluck('total', 'bulan')
-            ->toArray();
+        $peminjamanPerBulan = Peminjaman::whereYear('tanggal_pinjam', Carbon::now()->year)
+            ->get(['tanggal_pinjam'])
+            ->countBy(fn (Peminjaman $peminjaman) => $peminjaman->tanggal_pinjam->month);
 
         $chartData = [];
         for ($i = 1; $i <= 12; $i++) {

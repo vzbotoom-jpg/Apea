@@ -10,6 +10,7 @@ use App\Models\MutasiAlat;
 use App\Models\Notifikasi;
 use App\Models\LogActivity;
 use App\Helpers\Helper;
+use App\Models\Setting;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -137,8 +138,9 @@ class PeminjamanController extends Controller
      */
     public function store(Request $request)
     {
+        $maxAlat = (int) Setting::get('max_alat_per_hari', 2);
         $request->validate([
-            'alat_ids' => 'required|array|min:1|max:2',
+            'alat_ids' => "required|array|min:1|max:{$maxAlat}",
             'alat_ids.*' => 'exists:alats,id',
             'tanggal_pinjam' => 'required|date|after_or_equal:today',
             'tanggal_jatuh_tempo' => 'required|date|after:tanggal_pinjam',
@@ -154,10 +156,10 @@ class PeminjamanController extends Controller
 
         $totalDipinjamHariIni = $todayPeminjaman->sum('detail_peminjamans_count');
         
-        if (($totalDipinjamHariIni + count($request->alat_ids)) > 2) {
+        if (($totalDipinjamHariIni + count($request->alat_ids)) > $maxAlat) {
             return response()->json([
                 'status' => false,
-                'message' => 'Maksimal peminjaman 2 alat per hari!',
+                'message' => "Maksimal peminjaman {$maxAlat} alat per hari!",
             ], 400);
         }
 
@@ -176,6 +178,7 @@ class PeminjamanController extends Controller
                 'status' => 'menunggu',
                 'catatan' => $request->catatan,
             ]);
+            $rentalDays = $peminjaman->getRentalDays();
 
             // Create details
             foreach ($request->alat_ids as $alatId) {
@@ -203,7 +206,8 @@ class PeminjamanController extends Controller
                     'alat_id' => $alatId,
                     'jumlah' => 1,
                     'harga_sewa_saat_pinjam' => $alat->harga_sewa_per_hari,
-                    'subtotal' => $alat->harga_sewa_per_hari,
+                    'denda_per_hari_saat_pinjam' => $alat->denda_per_hari,
+                    'subtotal' => $alat->harga_sewa_per_hari * $rentalDays,
                 ]);
             }
 

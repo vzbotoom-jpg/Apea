@@ -15,6 +15,10 @@
             <span class="text-sm font-bold text-slate-900">Total Tagihan (sewa + denda)</span>
             <span class="text-xl font-extrabold text-teal-600">Rp {{ number_format($peminjaman->total_bayar, 0, ',', '.') }}</span>
         </div>
+        <div class="flex justify-between items-center pt-2 text-sm">
+            <span class="font-semibold text-slate-700">Sisa Tagihan</span>
+            <span class="font-bold text-slate-900">Rp {{ number_format($sisaTagihan, 0, ',', '.') }}</span>
+        </div>
     </div>
 
     {{-- Form Pembayaran --}}
@@ -41,7 +45,7 @@
 
         <div>
             <label class="block text-sm font-bold text-slate-900 mb-2">2. Nominal yang Ditransfer</label>
-            <input type="number" name="nominal" value="{{ old('nominal', $peminjaman->total_bayar) }}" min="1" required
+            <input type="number" name="nominal" value="{{ old('nominal', $sisaTagihan) }}" min="{{ $sisaTagihan }}" required
                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
             @error('nominal') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
         </div>

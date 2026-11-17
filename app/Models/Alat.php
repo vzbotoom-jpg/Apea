@@ -88,6 +88,14 @@ class Alat extends Model
         $this->save();
     }
 
+    public function availableStockAfterAdjustment(int $newStock): ?int
+    {
+        $unavailableStock = max(0, $this->stok - $this->stok_tersedia);
+        $newAvailableStock = $newStock - $unavailableStock;
+
+        return $newAvailableStock < 0 ? null : $newAvailableStock;
+    }
+
     public function mutasis()
 {
     return $this->hasMany(MutasiAlat::class)->latest();

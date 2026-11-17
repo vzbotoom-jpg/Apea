@@ -100,6 +100,13 @@ class UserController extends Controller
             return back()->with('error', 'Anda tidak dapat menghapus akun sendiri!');
         }
 
+        if ($user->peminjamans()->exists()) {
+            return back()->with(
+                'error',
+                'User memiliki riwayat peminjaman dan tidak dapat dihapus. Nonaktifkan akun untuk mempertahankan riwayat.'
+            );
+        }
+
         $name = $user->name;
         $user->delete();
 

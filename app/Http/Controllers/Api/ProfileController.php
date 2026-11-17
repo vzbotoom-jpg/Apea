@@ -260,6 +260,13 @@ class ProfileController extends Controller
             ], 400);
         }
 
+        if ($user->peminjamans()->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User memiliki riwayat peminjaman dan tidak dapat dihapus. Nonaktifkan akun untuk mempertahankan riwayat.',
+            ], 409);
+        }
+
         $name = $user->name;
         $user->delete();
 

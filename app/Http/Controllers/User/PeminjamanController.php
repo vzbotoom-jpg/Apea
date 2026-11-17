@@ -88,8 +88,9 @@ class PeminjamanController extends Controller
                 'catatan' => $request->catatan,
             ]);
 
+            $rentalDays = $peminjaman->getRentalDays();
+
             // Create detail peminjaman
-            $totalSewa = 0;
             foreach ($request->alat_ids as $alatId) {
                 $alat = Alat::whereKey($alatId)->lockForUpdate()->firstOrFail();
                 
@@ -112,10 +113,9 @@ class PeminjamanController extends Controller
                     'alat_id' => $alatId,
                     'jumlah' => 1,
                     'harga_sewa_saat_pinjam' => $alat->harga_sewa_per_hari,
-                    'subtotal' => $alat->harga_sewa_per_hari,
+                    'denda_per_hari_saat_pinjam' => $alat->denda_per_hari,
+                    'subtotal' => $alat->harga_sewa_per_hari * $rentalDays,
                 ]);
-
-                $totalSewa += $detail->subtotal;
             }
 
             // Notify both admins and staff who can verify the request.
@@ -143,8 +143,9 @@ class PeminjamanController extends Controller
         
         // Calculate denda if late
         $denda = $peminjaman->calculateDenda();
+        $maxPerpanjanganHari = (int) Setting::get('maks_perpanjangan_hari', 7);
 
-        return view('user.peminjaman.show', compact('peminjaman', 'denda'));
+        return view('user.peminjaman.show', compact('peminjaman', 'denda', 'maxPerpanjanganHari'));
     }
 
     public function batalkan(Peminjaman $peminjaman)
@@ -210,44 +211,50 @@ class PeminjamanController extends Controller
     }
 
     public function requestPerpanjangan(Request $request, Peminjaman $peminjaman)
-{
-    // Check ownership
-    if ($peminjaman->user_id !== auth()->id()) {
-        abort(403);
+    {
+        abort_unless($peminjaman->user_id === auth()->id(), 403);
+
+        $maxPerpanjanganHari = (int) Setting::get('maks_perpanjangan_hari', 7);
+        $validated = $request->validate([
+            'tambahan_hari' => "required|integer|min:1|max:{$maxPerpanjanganHari}",
+            'alasan' => 'required|string|max:500',
+        ]);
+
+        $updated = DB::transaction(function () use ($peminjaman, $validated) {
+            $loan = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if ($loan->user_id !== auth()->id() || ! $loan->bisaPerpanjangan()) {
+                return null;
+            }
+
+            $loan->update([
+                'perpanjangan_requested' => true,
+                'tanggal_perpanjangan' => $loan->tanggal_jatuh_tempo->copy()->addDays((int) $validated['tambahan_hari']),
+                'status_perpanjangan' => 'menunggu',
+                'alasan_perpanjangan' => $validated['alasan'],
+            ]);
+
+            $staff = User::whereIn('role', ['admin', 'petugas'])->get();
+            foreach ($staff as $recipient) {
+                $route = $recipient->role === 'admin'
+                    ? route('admin.peminjaman.show', $loan)
+                    : route('petugas.peminjaman.show', $loan);
+
+                Helper::sendNotification(
+                    $recipient->id,
+                    '⏳ Pengajuan Perpanjangan',
+                    "{$loan->user->name} mengajukan perpanjangan {$loan->kode_peminjaman} hingga {$loan->tanggal_perpanjangan->format('d/m/Y')}.",
+                    'warning',
+                    $route
+                );
+            }
+
+            return $loan;
+        });
+
+        if (! $updated) {
+            return back()->with('error', 'Peminjaman ini tidak dapat diperpanjang.');
+        }
+
+        return back()->with('success', 'Pengajuan perpanjangan terkirim. Menunggu persetujuan petugas.');
     }
-
-    if (!$peminjaman->bisaPerpanjangan()) {
-        return back()->with('error', 'Peminjaman ini tidak dapat diperpanjang.');
-    }
-
-    $request->validate([
-        'tambahan_hari' => 'required|integer|min:1|max:7',
-        'alasan'        => 'required|string|max:500',
-    ]);
-
-    $peminjaman->update([
-        'perpanjangan_requested' => true,
-        'tanggal_perpanjangan'   => $peminjaman->tanggal_jatuh_tempo->copy()->addDays((int) $request->tambahan_hari),
-        'status_perpanjangan'    => 'menunggu',
-        'alasan_perpanjangan'    => $request->alasan,
-    ]);
-
-    // Notifikasi ke admin & petugas (link sesuai role)
-    $staff = User::whereIn('role', ['admin', 'petugas'])->get();
-    foreach ($staff as $u) {
-        $route = $u->role === 'admin'
-            ? route('admin.peminjaman.show', $peminjaman)
-            : route('petugas.peminjaman.show', $peminjaman);
-
-        Helper::sendNotification(
-            $u->id,
-            '⏳ Pengajuan Perpanjangan',
-            "{$peminjaman->user->name} mengajukan perpanjangan {$peminjaman->kode_peminjaman} hingga {$peminjaman->tanggal_perpanjangan->format('d/m/Y')}.",
-            'warning',
-            $route
-        );
-    }
-
-    return back()->with('success', 'Pengajuan perpanjangan terkirim. Menunggu persetujuan petugas.');
-}
 }

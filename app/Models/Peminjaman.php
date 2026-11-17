@@ -1,7 +1,8 @@
 <?php
 
 namespace App\Models;
-use App\Models\Setting; 
+
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -122,14 +123,32 @@ class Peminjaman extends Model
 
     public function getTotalBayarAttribute()
     {
-        return $this->detailPeminjamans->sum('subtotal') + $this->calculateDenda();
+        return $this->detailPeminjamans->sum('subtotal') + $this->getDendaTerutang();
+    }
+
+    public function getJumlahTerbayar(): int
+    {
+        $paid = (int) $this->pembayarans()
+            ->where('status', 'disetujui')
+            ->sum('nominal');
+
+        if ($paid === 0 && $this->status_pembayaran === 'lunas') {
+            return (int) $this->total_bayar;
+        }
+
+        return $paid;
+    }
+
+    public function getSisaTagihan(): int
+    {
+        return max(0, $this->total_bayar - $this->getJumlahTerbayar());
     }
 
     // ================= Methods =================
     public function isLate()
     {
-        return now()->greaterThan($this->tanggal_jatuh_tempo) &&
-            !in_array($this->status, ['dikembalikan', 'dibatalkan']);
+        return now()->startOfDay()->greaterThan($this->tanggal_jatuh_tempo) &&
+            ! in_array($this->status, ['dikembalikan', 'dibatalkan'], true);
     }
 
     public function getLateDays()
@@ -137,23 +156,73 @@ class Peminjaman extends Model
         if (!$this->isLate()) {
             return 0;
         }
-        return now()->diffInDays($this->tanggal_jatuh_tempo);
+
+        return (int) $this->tanggal_jatuh_tempo->startOfDay()->diffInDays(now()->startOfDay());
     }
 
-    public function calculateDenda()
-{
-    if (!$this->isLate()) {
-        return 0;
+    public static function rentalDaysBetween($startDate, $dueDate): int
+    {
+        return max(
+            1,
+            (int) Carbon::parse($startDate)->startOfDay()->diffInDays(Carbon::parse($dueDate)->startOfDay())
+        );
     }
-    $lateDays     = $this->getLateDays();
-    $tenggang     = (int) Setting::get('masa_tenggang_hari', 2);
-    $dendaPerHari = (int) Setting::get('denda_per_hari', 5000);
 
-    if ($lateDays <= $tenggang) {
-        return 0;
+    public function getRentalDays(): int
+    {
+        return self::rentalDaysBetween($this->tanggal_pinjam, $this->tanggal_jatuh_tempo);
     }
-    return ($lateDays - $tenggang) * $dendaPerHari;
-}
+
+    public function calculateDenda(): int
+    {
+        if ($this->status === 'dikembalikan') {
+            return (int) ($this->getDendaTerutangFromRecord() ?? 0);
+        }
+
+        if (! $this->isLate()) {
+            return 0;
+        }
+
+        $billableDays = max(0, $this->getLateDays() - (int) Setting::get('masa_tenggang_hari', 2));
+        if ($billableDays === 0) {
+            return 0;
+        }
+
+        $details = $this->relationLoaded('detailPeminjamans')
+            ? $this->detailPeminjamans
+            : $this->detailPeminjamans()->with('alat')->get();
+
+        $defaultRate = (int) Setting::get('denda_per_hari', 5000);
+
+        return (int) $details->sum(function (DetailPeminjaman $detail) use ($billableDays, $defaultRate) {
+            $rate = $detail->denda_per_hari_saat_pinjam;
+            if ($rate === null) {
+                $rate = $detail->alat?->denda_per_hari;
+            }
+
+            $rate = (int) $rate ?: $defaultRate;
+
+            return $detail->jumlah * (int) $rate * $billableDays;
+        });
+    }
+
+    public function getDendaTerutang(): int
+    {
+        if ($this->status !== 'dikembalikan') {
+            return $this->calculateDenda();
+        }
+
+        return (int) ($this->getDendaTerutangFromRecord() ?? 0);
+    }
+
+    private function getDendaTerutangFromRecord(): ?int
+    {
+        if ($this->relationLoaded('denda')) {
+            return $this->denda?->jumlah_denda;
+        }
+
+        return $this->denda()->value('jumlah_denda');
+    }
 
     // ✅ BARU — Helper Perpanjangan
     public function bisaPerpanjangan(): bool

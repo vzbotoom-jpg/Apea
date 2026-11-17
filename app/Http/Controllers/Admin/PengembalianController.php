@@ -9,6 +9,7 @@ use App\Models\Denda;
 use App\Models\MutasiAlat;
 use App\Models\Notifikasi;
 use App\Helpers\Helper;
+use App\Services\PengembalianService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,77 +54,30 @@ class PengembalianController extends Controller
 
     public function save(Request $request, Peminjaman $peminjaman)
     {
-        $request->validate([
+        $validated = $request->validate([
             'kondisi_alat' => 'required|in:baik,rusak_ringan,rusak_berat,hilang',
             'catatan' => 'nullable|string|max:500',
             'denda' => 'nullable|numeric|min:0',
-            'bukti_foto' => 'nullable|image|max:2048',
+            'bukti_foto' => 'nullable|image|max:2048|mimes:jpeg,png,jpg',
         ]);
 
-        if (!in_array($peminjaman->status, ['dipinjam', 'terlambat'])) {
-            return back()->with('error', 'Peminjaman ini tidak sedang dipinjam!');
+        $pengembalian = app(PengembalianService::class)->process(
+            $peminjaman,
+            $request->user(),
+            $validated,
+            $request->file('bukti_foto')
+        );
+
+        if (! $pengembalian) {
+            return back()->with('error', 'Peminjaman ini sudah tidak dapat diproses sebagai pengembalian.');
         }
 
-        DB::beginTransaction();
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($peminjaman)
+            ->log("Mengembalikan peminjaman {$peminjaman->kode_peminjaman}");
 
-        try {
-            // Create pengembalian
-            $pengembalian = Pengembalian::create([
-                'peminjaman_id' => $peminjaman->id,
-                'petugas_id' => auth()->id(),
-                'tanggal_kembali' => now(),
-                'denda' => $request->denda ?? 0,
-                'hari_terlambat' => $peminjaman->getLateDays(),
-                'kondisi_alat' => $request->kondisi_alat,
-                'catatan' => $request->catatan,
-            ]);
-
-            // Update peminjaman status
-            $peminjaman->status = 'dikembalikan';
-            $peminjaman->save();
-
-            // Update stock alat (kembalikan stok)
-            foreach ($peminjaman->detailPeminjamans as $detail) {
-                $detail->alat->addStock($detail->jumlah);
-                MutasiAlat::catat($detail->alat, 'masuk', $detail->jumlah, "Pengembalian {$peminjaman->kode_peminjaman}", $peminjaman);
-            }
-
-            // Create denda record if has denda
-            if ($request->denda > 0) {
-                Denda::create([
-                    'peminjaman_id' => $peminjaman->id,
-                    'jumlah_denda' => $request->denda,
-                    'tanggal_denda' => now(),
-                    'hari_terlambat' => $peminjaman->getLateDays(),
-                    'status' => 'belum_bayar',
-                ]);
-            }
-
-            // Send notification to user
-            $message = "Peminjaman {$peminjaman->kode_peminjaman} telah dikembalikan.";
-            if ($request->denda > 0) {
-                $message .= " Anda memiliki denda sebesar Rp " . number_format($request->denda, 0, ',', '.');
-            }
-
-            Helper::sendNotification(
-                $peminjaman->user_id,
-                'Pengembalian Selesai',
-                $message,
-                'success',
-                route('user.peminjaman.show', $peminjaman)
-            );
-
-            DB::commit();
-
-            // Log activity
-            activity()->log("Mengembalikan peminjaman {$peminjaman->kode_peminjaman}");
-
-            return redirect()->route('admin.pengembalian.index')
-                ->with('success', 'Pengembalian berhasil diproses!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-        }
+        return redirect()->route('admin.pengembalian.index')
+            ->with('success', 'Pengembalian berhasil diproses!');
     }
 }

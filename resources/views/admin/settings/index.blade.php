@@ -90,7 +90,7 @@
                 </div>
                 <div>
                     <label for="denda_per_hari" class="block text-sm font-medium text-gray-700 mb-2">
-                        Tarif Denda / Hari <span class="text-red-500">*</span>
+                        Tarif Denda Default / Hari <span class="text-red-500">*</span>
                     </label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-500">Rp</span>
@@ -98,7 +98,7 @@
                                value="{{ old('denda_per_hari', $settings['denda_per_hari']) }}"
                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
-                    <p class="mt-1 text-xs text-gray-500">Denda per alat per hari setelah masa tenggang habis.</p>
+                    <p class="mt-1 text-xs text-gray-500">Tarif default per alat per hari jika tarif khusus alat bernilai nol.</p>
                     @error('denda_per_hari') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                 </div>
             </div>

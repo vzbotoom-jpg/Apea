@@ -41,11 +41,6 @@
                     <p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>
                 @enderror
             </div>
-            <div>
-                <label for="role_display" class="block text-sm font-medium text-slate-700 mb-1.5">Role</label>
-                <input type="text" value="User / Peminjam" disabled
-                       class="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-sm text-slate-500 cursor-not-allowed">
-            </div>
         </div>
 
         <div>

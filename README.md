@@ -227,7 +227,7 @@ autentikasi, katalog alat, QR, serta dashboard.
 | | |
 |---|---|
 | **Nama** | [Nama Lengkap Anda] |
-| **Kelas** | XII RPL — SMK M 1 City B |
+| **Kelas** | XII RPL — SMK M 1 Bantul |
 | **NIS** | [NIS Anda] |
 | **Program Keahlian** | Pengembangan Perangkat Lunak dan Gim |
 

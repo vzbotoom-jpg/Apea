@@ -4,9 +4,7 @@ namespace App\Services;
 
 use App\Helpers\Helper;
 use App\Models\Alat;
-use App\Models\Denda;
 use App\Models\MutasiAlat;
-use App\Models\Pembayaran;
 use App\Models\Peminjaman;
 use App\Models\Pengembalian;
 use App\Models\User;
@@ -30,21 +28,10 @@ class PengembalianService
             }
 
             $loan->load(['detailPeminjamans.alat']);
-            $denda = (int) ($data['denda'] ?? $loan->calculateDenda());
             $hariTerlambat = $loan->getLateDays();
 
-            if ($loan->status_pembayaran === 'lunas'
-                && ! $loan->pembayarans()->where('status', 'disetujui')->exists()) {
-                Pembayaran::create([
-                    'peminjaman_id' => $loan->id,
-                    'user_id' => $loan->user_id,
-                    'metode' => $loan->metode_pembayaran ?: 'tunai',
-                    'nominal' => $loan->total_bayar,
-                    'status' => 'disetujui',
-                    'verified_by' => $loan->dibayar_oleh,
-                    'verified_at' => $loan->tanggal_bayar ?: now(),
-                ]);
-            }
+            $fine = app(DendaService::class)->assessOnReturn($loan, $loan->calculateDenda(), $hariTerlambat);
+            $denda = (int) ($fine?->jumlah_denda ?? 0);
 
             $pengembalian = Pengembalian::create([
                 'peminjaman_id' => $loan->id,
@@ -103,16 +90,6 @@ class PengembalianService
             }
 
             $loan->update(['status' => 'dikembalikan']);
-
-            if ($denda > 0) {
-                Denda::create([
-                    'peminjaman_id' => $loan->id,
-                    'jumlah_denda' => $denda,
-                    'tanggal_denda' => now(),
-                    'hari_terlambat' => $hariTerlambat,
-                    'status' => 'belum_bayar',
-                ]);
-            }
 
             if ($loan->getSisaTagihan() > 0) {
                 $loan->update(['status_pembayaran' => 'belum_bayar']);

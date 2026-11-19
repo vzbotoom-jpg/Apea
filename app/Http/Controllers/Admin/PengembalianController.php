@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Peminjaman;
 use App\Models\Pengembalian;
-use App\Models\Denda;
 use App\Models\MutasiAlat;
 use App\Models\Notifikasi;
 use App\Helpers\Helper;
 use App\Services\PengembalianService;
+use App\Models\Setting;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,7 +49,9 @@ class PengembalianController extends Controller
         $denda = $peminjaman->calculateDenda();
         $hariTerlambat = $peminjaman->getLateDays();
 
-        return view('admin.pengembalian.proses', compact('peminjaman', 'denda', 'hariTerlambat'));
+        $masaTenggangHari = (int) Setting::get('masa_tenggang_hari', 2);
+
+        return view('admin.pengembalian.proses', compact('peminjaman', 'denda', 'hariTerlambat', 'masaTenggangHari'));
     }
 
     public function save(Request $request, Peminjaman $peminjaman)
@@ -57,7 +59,6 @@ class PengembalianController extends Controller
         $validated = $request->validate([
             'kondisi_alat' => 'required|in:baik,rusak_ringan,rusak_berat,hilang',
             'catatan' => 'nullable|string|max:500',
-            'denda' => 'nullable|numeric|min:0',
             'bukti_foto' => 'nullable|image|max:2048|mimes:jpeg,png,jpg',
         ]);
 

@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Helpers\Helper;
 use App\Models\Pembayaran;
 use App\Models\Peminjaman;
-use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -25,34 +25,38 @@ class PembayaranController extends Controller
             "Pembayaran hanya boleh untuk peminjaman yang sedang berlangsung atau telah dikembalikan.");
         abort_if($peminjaman->getSisaTagihan() === 0, 403, 'Tagihan peminjaman ini sudah lunas.');
 
-        $metodeAktif = json_decode(Setting::get('metode_pembayaran_aktif',
-            json_encode(['transfer_bank', 'dana', 'shopeepay', 'gopay', 'tunai'])), true);
-        $tujuan = json_decode(Setting::get('tujuan_pembayaran', json_encode([])), true) ?: [];
-        $infoTransfer = Setting::get('info_transfer', '');
-        if ($infoTransfer !== '') {
-            $tujuan['transfer'] = $tujuan['transfer'] ?? $infoTransfer;
-            $tujuan['transfer_bank'] = $tujuan['transfer_bank'] ?? $infoTransfer;
+        $pendingPayment = $peminjaman->pembayarans()
+            ->where('status', 'menunggu')
+            ->latest()
+            ->first();
+        if ($pendingPayment) {
+            return redirect()->route('user.pembayaran.instruksi', $pendingPayment);
         }
+
+        $metodeAktif = Pembayaran::enabledMethods();
         $sisaTagihan = $peminjaman->getSisaTagihan();
 
-        return view('user.pembayaran.bayar', compact('peminjaman', 'metodeAktif', 'tujuan', 'sisaTagihan'));
+        return view('user.pembayaran.bayar', compact('peminjaman', 'metodeAktif', 'sisaTagihan'));
     }
 
     public function store(Request $request, Peminjaman $peminjaman)
     {
         abort_unless($peminjaman->user_id === auth()->id(), 403);
 
-        $metodeAktif = json_decode(Setting::get('metode_pembayaran_aktif',
-            json_encode(['transfer_bank', 'dana', 'shopeepay', 'gopay', 'tunai'])), true);
+        $metodeAktif = Pembayaran::enabledMethods();
+        abort_if(empty($metodeAktif), 503, 'Belum ada metode pembayaran yang siap digunakan. Hubungi admin.');
 
         $validated = $request->validate([
-            'metode'  => 'required|in:' . implode(',', $metodeAktif),
-            'nominal' => 'required|integer|min:1',
-            'bukti'   => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'metode' => ['required', Rule::in($metodeAktif)],
         ]);
 
-        $pembayaran = DB::transaction(function () use ($request, $peminjaman, $validated) {
+        $pembayaran = DB::transaction(function () use ($peminjaman, $validated) {
             $loan = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            abort_unless(
+                in_array($validated['metode'], Pembayaran::enabledMethods(), true),
+                422,
+                'Metode pembayaran ini sudah tidak aktif.'
+            );
             $allowedStatus = ['diverifikasi', 'dipinjam', 'terlambat', 'dikembalikan'];
             abort_unless(in_array($loan->status, $allowedStatus, true), 403,
                 'Pembayaran hanya boleh untuk peminjaman yang sedang berlangsung atau telah dikembalikan.');
@@ -65,36 +69,37 @@ class PembayaranController extends Controller
             );
 
             $amountDue = $loan->getSisaTagihan();
-            $request->validate([
-                'nominal' => "required|integer|min:{$amountDue}",
-            ], [
-                'nominal.min' => 'Nominal pembayaran minimal Rp '.number_format($amountDue, 0, ',', '.'),
-            ]);
 
             return Pembayaran::create([
                 'peminjaman_id' => $loan->id,
                 'user_id' => auth()->id(),
                 'metode' => $validated['metode'],
-                'nominal' => $validated['nominal'],
-                'bukti_path' => $request->file('bukti')->store('bukti-pembayaran/'.auth()->id(), 'private'),
+                'nominal' => $amountDue,
+                'qr_path' => Pembayaran::qrCodes()[$validated['metode']] ?? null,
                 'status' => 'menunggu',
             ]);
         });
 
-        // ✅ NOTIFIKASI KHUSUS ke petugas & admin (berisi nominal)
         User::whereIn('role', ['petugas', 'admin'])->get()->each(
             fn ($u) => Helper::sendNotification(
                 $u->id,
-                '💰 Pembayaran Baru — Verifikasi Sekarang',
-                "{$peminjaman->user->name} membayar Rp " . number_format($pembayaran->nominal, 0, ',', '.') .
-                " via {$pembayaran->metode_label} untuk {$peminjaman->kode_peminjaman}.",
+                '💳 Pembayaran Menunggu Verifikasi',
+                "{$peminjaman->user->name} memilih {$pembayaran->metode_label} untuk tagihan Rp ".
+                number_format($pembayaran->nominal, 0, ',', '.')." ({$peminjaman->kode_peminjaman}).",
                 'info',
                 route('pembayaran.show', $pembayaran)
             )
         );
 
-        return redirect()->route('user.peminjaman.show', $peminjaman)
-            ->with('success', '✅ Bukti pembayaran terkirim! Menunggu verifikasi petugas.');
+        return redirect()->route('user.pembayaran.instruksi', $pembayaran);
+    }
+
+    public function instructions(Pembayaran $pembayaran)
+    {
+        abort_unless($pembayaran->user_id === auth()->id(), 403);
+        $pembayaran->load('peminjaman');
+
+        return view('user.pembayaran.instruksi', compact('pembayaran'));
     }
 
     // ================= PETUGAS / ADMIN =================

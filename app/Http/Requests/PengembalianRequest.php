@@ -17,7 +17,6 @@ class PengembalianRequest extends FormRequest
         return [
             'kondisi_alat' => ['required', Rule::in(['baik', 'rusak_ringan', 'rusak_berat', 'hilang'])],
             'catatan' => 'nullable|string|max:500',
-            'denda' => 'nullable|numeric|min:0',
             'bukti_foto' => 'nullable|image|max:2048|mimes:jpeg,png,jpg',
         ];
     }
@@ -26,8 +25,6 @@ class PengembalianRequest extends FormRequest
     {
         return [
             'kondisi_alat.required' => 'Kondisi alat wajib dipilih.',
-            'denda.numeric' => 'Denda harus berupa angka.',
-            'denda.min' => 'Denda minimal 0.',
             'bukti_foto.image' => 'File harus berupa gambar.',
             'bukti_foto.max' => 'Ukuran gambar maksimal 2MB.',
         ];

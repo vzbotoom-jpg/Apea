@@ -11,13 +11,13 @@
         'masa_tenggang_hari'     => 2,
         'denda_per_hari'         => 5000,
         'maks_perpanjangan_hari' => 7,
-        'metode_pembayaran_aktif' => ['tunai', 'transfer'],
-        'info_transfer'          => '',
+        'metode_pembayaran_aktif' => ['tunai'],
+        'qr_pembayaran'          => [],
     ];
     $contohDenda = max(0, 5 - $settings['masa_tenggang_hari']) * $settings['denda_per_hari'];
 @endphp
 
-<div class="max-w-3xl mx-auto space-y-6">
+<div class="max-w-3xl mx-auto space-y-4 sm:space-y-6">
 
     {{-- Alert Sukses --}}
     @if(session('success'))
@@ -26,11 +26,11 @@
         </div>
     @endif
 
-    <form action="{{ route('admin.settings.update') }}" method="POST" class="space-y-6">
+    <form action="{{ route('admin.settings.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         @csrf
 
         {{-- ===== ATURAN PEMINJAMAN ===== --}}
-        <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-10 h-10 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
@@ -66,7 +66,7 @@
         </div>
 
         {{-- ===== ATURAN DENDA ===== --}}
-        <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -112,54 +112,58 @@
         </div>
 
         {{-- ===== ✅ BARU: METODE PEMBAYARAN (Kendali Admin) ===== --}}
-        <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
                 </div>
                 <div>
                     <h2 class="text-lg font-semibold text-gray-800">Metode Pembayaran</h2>
-                    <p class="text-sm text-gray-500">Metode yang boleh dipakai petugas saat konfirmasi pembayaran.</p>
+                    <p class="text-sm text-gray-500">Aktifkan metode yang tersedia. Unggah QR tujuan untuk setiap metode non-tunai.</p>
                 </div>
             </div>
 
             <div class="space-y-3">
-                <label class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition {{ in_array('tunai', $settings['metode_pembayaran_aktif']) ? 'border-teal-300 bg-teal-50/50' : 'border-gray-200 hover:bg-gray-50' }}">
-                    <input type="checkbox" name="metode_pembayaran_aktif[]" value="tunai"
-                           {{ in_array('tunai', $settings['metode_pembayaran_aktif']) ? 'checked' : '' }}
-                           class="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
-                    <span>
-                        <span class="block text-sm font-medium text-gray-800">Tunai</span>
-                        <span class="block text-xs text-gray-500">Pembayaran langsung di loket petugas.</span>
-                    </span>
-                </label>
+                @foreach(\App\Models\Pembayaran::METODE_LIST as $method => $label)
+                    @php($active = in_array($method, old('metode_pembayaran_aktif', $settings['metode_pembayaran_aktif']), true))
+                    <div class="rounded-xl border p-3 sm:p-4 transition-colors {{ $active ? 'border-teal-300 bg-teal-50/50' : 'border-gray-200' }}">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" name="metode_pembayaran_aktif[]" value="{{ $method }}"
+                                   {{ $active ? 'checked' : '' }}
+                                   class="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                            <span class="text-sm font-medium text-gray-800">{{ $label }}</span>
+                        </label>
 
-                <label class="flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition {{ in_array('transfer', $settings['metode_pembayaran_aktif']) ? 'border-teal-300 bg-teal-50/50' : 'border-gray-200 hover:bg-gray-50' }}">
-                    <input type="checkbox" name="metode_pembayaran_aktif[]" value="transfer"
-                           {{ in_array('transfer', $settings['metode_pembayaran_aktif']) ? 'checked' : '' }}
-                           class="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
-                    <span>
-                        <span class="block text-sm font-medium text-gray-800">Transfer Bank</span>
-                        <span class="block text-xs text-gray-500">User transfer ke rekening, petugas/admin verifikasi.</span>
-                    </span>
-                </label>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Info Rekening Tujuan (jika transfer aktif)</label>
-                    <input type="text" name="info_transfer" value="{{ old('info_transfer', $settings['info_transfer']) }}"
-                           placeholder="Contoh: BRI 1234-5678-9012 a.n."
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">
-                    @error('info_transfer') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
-                </div>
+                        @if($method !== 'tunai')
+                            <div class="mt-3 ml-7">
+                                @if(!empty($settings['qr_pembayaran'][$method]))
+                                    <img src="{{ asset('storage/'.$settings['qr_pembayaran'][$method]) }}"
+                                         alt="QR {{ $label }}" class="mb-3 h-28 w-28 rounded-lg border bg-white object-contain p-2 sm:h-32 sm:w-32">
+                                @endif
+                                <label for="qr_codes_{{ $method }}" class="block text-xs font-medium text-gray-700 mb-1">
+                                    {{ !empty($settings['qr_pembayaran'][$method]) ? 'Ganti QR tujuan' : 'Unggah QR tujuan' }}
+                                    (PNG/JPG/WEBP, maks. 2 MB)
+                                </label>
+                                <input id="qr_codes_{{ $method }}" type="file" name="qr_codes[{{ $method }}]"
+                                       accept="image/png,image/jpeg,image/webp"
+                                       class="block w-full min-w-0 cursor-pointer rounded-lg border border-gray-300 bg-white text-xs text-gray-600 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-teal-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 sm:text-sm">
+                                @error("qr_codes.$method") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                        @else
+                            <p class="mt-1 ml-7 text-xs text-gray-500">Pembayaran tunai dilakukan di loket petugas.</p>
+                        @endif
+                    </div>
+                @endforeach
+                @error('metode_pembayaran_aktif') <p class="text-sm text-red-600">{{ $message }}</p> @enderror
             </div>
         </div>
 
         {{-- Tombol Aksi --}}
-        <div class="flex items-center gap-3">
-            <button type="submit" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-200">
+        <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+            <button type="submit" class="w-full px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-200 sm:w-auto">
                 Simpan Pengaturan
             </button>
-            <a href="{{ route('admin.dashboard') }}" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200">
+            <a href="{{ route('admin.dashboard') }}" class="w-full px-6 py-2.5 text-center bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 sm:w-auto">
                 Batal
             </a>
         </div>

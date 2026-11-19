@@ -6,12 +6,18 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-
 class Peminjaman extends Model
 {
     use HasFactory;
 
     protected $table = 'peminjamans'; // ✅ sesuai tabel asli
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $peminjaman): void {
+            $peminjaman->qr_token ??= bin2hex(random_bytes(32));
+        });
+    }
 
     protected $fillable = [
         'kode_peminjaman',
@@ -37,11 +43,11 @@ class Peminjaman extends Model
     ];
 
     protected $casts = [
-        'tanggal_pinjam'       => 'date',
-        'tanggal_jatuh_tempo'  => 'date',
-        'tanggal_verifikasi'   => 'datetime',
-        'tanggal_ambil'        => 'datetime',
-        'tanggal_bayar'        => 'datetime',
+        'tanggal_pinjam' => 'date',
+        'tanggal_jatuh_tempo' => 'date',
+        'tanggal_verifikasi' => 'datetime',
+        'tanggal_ambil' => 'datetime',
+        'tanggal_bayar' => 'datetime',
         'perpanjangan_requested' => 'boolean',   // ✅ BARU
         'tanggal_perpanjangan' => 'date',        // ✅ BARU
     ];
@@ -91,23 +97,24 @@ class Peminjaman extends Model
     public function getStatusBadgeAttribute()
     {
         $badges = [
-            'menunggu'     => 'bg-yellow-100 text-yellow-800',
+            'menunggu' => 'bg-yellow-100 text-yellow-800',
             'diverifikasi' => 'bg-blue-100 text-blue-800',
-            'dipinjam'     => 'bg-purple-100 text-purple-800',
+            'dipinjam' => 'bg-purple-100 text-purple-800',
             'dikembalikan' => 'bg-green-100 text-green-800',
-            'dibatalkan'   => 'bg-red-100 text-red-800',
-            'terlambat'    => 'bg-red-100 text-red-800',
+            'dibatalkan' => 'bg-red-100 text-red-800',
+            'terlambat' => 'bg-red-100 text-red-800',
         ];
+
         return $badges[$this->status] ?? 'bg-gray-100 text-gray-800';
     }
 
     public function getPerpanjanganBadgeAttribute() // ✅ BARU
     {
         return match ($this->status_perpanjangan) {
-            'menunggu'  => 'bg-amber-100 text-amber-700',
+            'menunggu' => 'bg-amber-100 text-amber-700',
             'disetujui' => 'bg-emerald-100 text-emerald-700',
-            'ditolak'   => 'bg-red-100 text-red-700',
-            default     => 'bg-slate-100 text-slate-600',
+            'ditolak' => 'bg-red-100 text-red-700',
+            default => 'bg-slate-100 text-slate-600',
         };
     }
 
@@ -132,8 +139,14 @@ class Peminjaman extends Model
             ->where('status', 'disetujui')
             ->sum('nominal');
 
-        if ($paid === 0 && $this->status_pembayaran === 'lunas') {
-            return (int) $this->total_bayar;
+        if ($this->status_pembayaran === 'lunas') {
+            $rentalTotal = $this->detailPeminjamans()
+                ->sum('subtotal');
+            $paidFine = $this->denda()
+                ->where('status', 'lunas')
+                ->value('jumlah_denda') ?? 0;
+
+            return max($paid, (int) $rentalTotal + (int) $paidFine);
         }
 
         return $paid;
@@ -153,7 +166,7 @@ class Peminjaman extends Model
 
     public function getLateDays()
     {
-        if (!$this->isLate()) {
+        if (! $this->isLate()) {
             return 0;
         }
 
@@ -227,7 +240,7 @@ class Peminjaman extends Model
     // ✅ BARU — Helper Perpanjangan
     public function bisaPerpanjangan(): bool
     {
-        return $this->status === 'dipinjam' && !$this->perpanjangan_requested;
+        return $this->status === 'dipinjam' && ! $this->perpanjangan_requested;
     }
 
     public function perpanjanganMenunggu(): bool

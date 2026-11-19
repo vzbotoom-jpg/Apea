@@ -97,7 +97,7 @@
         @if($denda > 0)
             <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                 ⚠️ Peminjam dikenakan denda <strong>Rp {{ number_format($denda, 0, ',', '.') }}</strong>
-                (terlambat {{ $hariTerlambat }} hari di luar masa tenggang).
+                (terlambat {{ $hariTerlambat }} hari; masa tenggang {{ $masaTenggangHari }} hari).
             </div>
         @endif
 

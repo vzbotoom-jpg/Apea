@@ -11,6 +11,6 @@ Artisan::command('inspire', function () {
 // ============================================
 // ⏰ APIC — Scheduler Pengingat Jatuh Tempo
 // ============================================
-// Setiap hari 07:00 → tandai peminjaman terlambat otomatis
-// + kirim notifikasi pengingat H-1 dan hari H ke user
+// Setiap hari 07:00 → tandai keterlambatan, sinkronkan denda otomatis,
+// + kirim notifikasi keterlambatan serta pengingat H-1 dan hari H.
 Schedule::command('peminjaman:ingatkan')->dailyAt('07:00');

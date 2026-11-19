@@ -9,8 +9,11 @@ use App\Models\Alat;
 use App\Models\User;
 use App\Models\Denda;
 use App\Models\LogActivity;
+use App\Models\Pembayaran;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\PeminjamanExport;
@@ -213,23 +216,73 @@ class LaporanController extends Controller
     /**
      * Bayar denda (Admin only)
      */
-    public function bayarDenda(Denda $denda)
+    public function bayarDenda(Request $request, Denda $denda)
     {
-        if ($denda->status === 'lunas') {
+        $validated = $request->validate([
+            'metode' => ['required', Rule::in(Pembayaran::enabledMethods())],
+        ]);
+
+        $result = DB::transaction(function () use ($denda, $validated) {
+            $fine = Denda::whereKey($denda->id)->lockForUpdate()->firstOrFail();
+            if ($fine->status === 'lunas') {
+                return ['error' => 'Denda sudah lunas!', 'status' => 400];
+            }
+
+            $loan = Peminjaman::whereKey($fine->peminjaman_id)->lockForUpdate()->firstOrFail();
+            if ($loan->pembayarans()->where('status', 'menunggu')->exists()) {
+                return ['error' => 'Selesaikan verifikasi pembayaran yang sedang menunggu terlebih dahulu.', 'status' => 409];
+            }
+
+            $amountDue = $loan->getSisaTagihan();
+            if ($amountDue > 0 && $amountDue < $fine->jumlah_denda) {
+                return ['error' => 'Sisa tagihan lebih kecil dari nominal denda. Gunakan alur pembayaran peminjaman.', 'status' => 409];
+            }
+
+            if ($amountDue > 0) {
+                Pembayaran::create([
+                    'peminjaman_id' => $loan->id,
+                    'user_id' => $loan->user_id,
+                    'metode' => $validated['metode'],
+                    'nominal' => $fine->jumlah_denda,
+                    'status' => 'disetujui',
+                    'verified_by' => auth()->id(),
+                    'verified_at' => now(),
+                ]);
+            }
+
+            $fine->markAsPaid();
+            $isPaid = $loan->getSisaTagihan() === 0;
+            $loan->update([
+                'status_pembayaran' => $isPaid ? 'lunas' : 'belum_bayar',
+            ]);
+            if ($isPaid) {
+                $loan->update([
+                    'metode_pembayaran' => $validated['metode'],
+                    'tanggal_bayar' => now(),
+                    'dibayar_oleh' => auth()->id(),
+                ]);
+            }
+
+            return ['fine' => $fine->fresh('peminjaman')];
+        });
+
+        if (isset($result['error'])) {
             return response()->json([
                 'status' => false,
-                'message' => 'Denda sudah lunas!',
-            ], 400);
+                'message' => $result['error'],
+            ], $result['status']);
         }
 
-        $denda->markAsPaid();
-
-        LogActivity::log(auth()->id(), "Membayar denda peminjaman {$denda->peminjaman->kode_peminjaman}", 'API');
+        LogActivity::log(
+            auth()->id(),
+            "Membayar denda peminjaman {$result['fine']->peminjaman->kode_peminjaman}",
+            'API'
+        );
 
         return response()->json([
             'status' => true,
-            'message' => 'Denda berhasil dibayar!',
-            'data' => $denda,
+            'message' => 'Denda berhasil dibayar dan dicatat.',
+            'data' => $result['fine'],
         ]);
     }
 

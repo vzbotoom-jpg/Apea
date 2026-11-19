@@ -29,6 +29,7 @@ use App\Http\Controllers\Auth\VerificationController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\QrController;
 use App\Http\Controllers\PembayaranController;
+use App\Http\Controllers\DendaController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -93,6 +94,8 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'user'])->group(function () {
     Route::get('peminjaman/{peminjaman}/bayar', [PembayaranController::class, 'form'])->name('user.peminjaman.bayar');
     Route::post('peminjaman/{peminjaman}/bayar', [PembayaranController::class, 'store'])->name('user.peminjaman.bayar.store');
+    Route::get('pembayaran/{pembayaran}/instruksi', [PembayaranController::class, 'instructions'])
+        ->name('user.pembayaran.instruksi');
 });
 
 // ===== PETUGAS & ADMIN: verifikasi pembayaran =====
@@ -103,6 +106,10 @@ Route::prefix('pembayaran')->name('pembayaran.')->middleware('auth')->group(func
     Route::post('{pembayaran}/setujui', [PembayaranController::class, 'setujui'])->name('setujui');
     Route::post('{pembayaran}/tolak', [PembayaranController::class, 'tolak'])->name('tolak');
 });
+
+Route::get('/denda', [DendaController::class, 'index'])
+    ->middleware(['auth', 'petugas'])
+    ->name('denda.index');
 
 // ============================================
 // ADMIN ROUTES
@@ -163,6 +170,9 @@ Route::prefix('petugas')->name('petugas.')->middleware(['auth', 'petugas'])->gro
     Route::get('alat/available', [PetugasAlatController::class, 'getAvailableAlats'])->name('alat.available');
 
     Route::get('scan', [PetugasAlatController::class, 'scan'])->name('alat.scan');
+    Route::get('scan/transaksi/{token}', [PetugasPeminjamanController::class, 'scanTransaction'])
+        ->where('token', '[a-f0-9]{64}')
+        ->name('scan.transaksi');
     
     // Peminjaman
     Route::get('peminjaman', [PetugasPeminjamanController::class, 'index'])->name('peminjaman.index');

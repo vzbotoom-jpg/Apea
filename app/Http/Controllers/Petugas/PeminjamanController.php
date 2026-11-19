@@ -84,6 +84,15 @@ class PeminjamanController extends Controller
         return view('petugas.peminjaman.show', compact('peminjaman', 'denda', 'hariTerlambat'));
     }
 
+    public function scanTransaction(string $token)
+    {
+        $peminjaman = Peminjaman::where('qr_token', $token)
+            ->with(['user', 'detailPeminjamans.alat'])
+            ->firstOrFail();
+
+        return view('petugas.scan-transaction', compact('peminjaman'));
+    }
+
     public function verifikasi(Peminjaman $peminjaman)
     {
         DB::beginTransaction();
@@ -128,44 +137,38 @@ class PeminjamanController extends Controller
 
     public function ambil(Peminjaman $peminjaman)
     {
-        // Validasi status
-        if ($peminjaman->status !== 'diverifikasi') {
-            return back()->with('error', 'Peminjaman belum diverifikasi atau sudah diambil!');
-        }
+        $updated = DB::transaction(function () use ($peminjaman) {
+            $loan = Peminjaman::whereKey($peminjaman->id)->lockForUpdate()->firstOrFail();
+            if ($loan->status !== 'diverifikasi') {
+                return false;
+            }
 
-        DB::beginTransaction();
+            $loan->status = 'dipinjam';
+            $loan->tanggal_ambil = now();
+            $loan->save();
 
-        try {
-            // Update status
-            $peminjaman->status = 'dipinjam';
-            $peminjaman->tanggal_ambil = now();
-            $peminjaman->save();
-
-            // The stock was reserved when the request was submitted.
-
-            // Send notification to user
             Helper::sendNotification(
-                $peminjaman->user_id,
+                $loan->user_id,
                 '📦 Alat Telah Diambil',
-                "Anda telah mengambil alat untuk peminjaman {$peminjaman->kode_peminjaman}. Jangan lupa mengembalikan tepat waktu!",
+                "Anda telah mengambil alat untuk peminjaman {$loan->kode_peminjaman}. Jangan lupa mengembalikan tepat waktu!",
                 'info',
-                route('user.peminjaman.show', $peminjaman)
+                route('user.peminjaman.show', $loan)
             );
 
-            DB::commit();
+            return $loan;
+        });
 
-            activity()
-                ->causedBy(auth()->user())
-                ->performedOn($peminjaman)
-                ->log("Menyerahkan alat untuk peminjaman {$peminjaman->kode_peminjaman}");
-
-            return redirect()->route('petugas.peminjaman.show', $peminjaman)
-                ->with('success', '📦 Alat berhasil diserahkan kepada peminjam!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        if (! $updated) {
+            return back()->with('error', 'Peminjaman belum diverifikasi atau sudah diserahkan.');
         }
+
+        activity()
+            ->causedBy(auth()->user())
+            ->performedOn($updated)
+            ->log("Menyerahkan alat untuk peminjaman {$updated->kode_peminjaman}");
+
+        return redirect()->route('petugas.peminjaman.show', $updated)
+            ->with('success', '📦 Alat berhasil diserahkan kepada peminjam!');
     }
 
     public function batalkan(Peminjaman $peminjaman, Request $request)

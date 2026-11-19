@@ -144,8 +144,12 @@ class PeminjamanController extends Controller
         // Calculate denda if late
         $denda = $peminjaman->calculateDenda();
         $maxPerpanjanganHari = (int) Setting::get('maks_perpanjangan_hari', 7);
+        $pembayaranMenunggu = $peminjaman->pembayarans()
+            ->where('status', 'menunggu')
+            ->latest()
+            ->first();
 
-        return view('user.peminjaman.show', compact('peminjaman', 'denda', 'maxPerpanjanganHari'));
+        return view('user.peminjaman.show', compact('peminjaman', 'denda', 'maxPerpanjanganHari', 'pembayaranMenunggu'));
     }
 
     public function batalkan(Peminjaman $peminjaman)

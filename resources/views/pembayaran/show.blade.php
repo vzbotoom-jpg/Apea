@@ -73,7 +73,7 @@
 
             {{-- Bukti Pembayaran --}}
             <div>
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Bukti Pembayaran</h3>
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Bukti / Informasi Pembayaran</h3>
                 @if($buktiUrl)
                     <a href="{{ $buktiUrl }}" target="_blank" class="block relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
                         <img src="{{ $buktiUrl }}" alt="Bukti pembayaran" class="max-h-96 w-full object-contain bg-white">
@@ -86,7 +86,15 @@
                     </a>
                 @else
                     <div class="p-8 border-2 border-dashed border-slate-200 rounded-xl text-center">
-                        <p class="text-sm text-slate-500">Tidak ada bukti unggahan — pembayaran tunai di loket.</p>
+                        @if($pembayaran->qr_path)
+                            <img src="{{ asset('storage/'.$pembayaran->qr_path) }}" alt="QR tujuan pembayaran"
+                                 class="mx-auto mb-3 h-40 w-40 rounded-lg border bg-white object-contain p-2">
+                            <p class="text-sm text-slate-600">QR tujuan pembayaran {{ $pembayaran->metode_label }}. Cocokkan penerimaan dana melalui mutasi akun.</p>
+                        @elseif($pembayaran->metode === 'tunai')
+                            <p class="text-sm text-slate-500">Pembayaran tunai di loket; konfirmasi setelah uang diterima.</p>
+                        @else
+                            <p class="text-sm text-slate-500">Tidak ada lampiran bukti. Verifikasi penerimaan pembayaran melalui mutasi akun.</p>
+                        @endif
                     </div>
                 @endif
             </div>

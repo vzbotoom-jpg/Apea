@@ -21,46 +21,33 @@
         </div>
     </div>
 
-    {{-- Form Pembayaran --}}
-    <form action="{{ route('user.peminjaman.bayar.store', $peminjaman) }}" method="POST"
-          enctype="multipart/form-data" class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-6">
-        @csrf
-
-        <div>
-            <label class="block text-sm font-bold text-slate-900 mb-3">1. Pilih Metode Pembayaran</label>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                @foreach($metodeAktif as $m)
-                    <label class="relative p-3 border border-slate-200 rounded-lg cursor-pointer text-center transition
-                                  has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50 has-[:checked]:ring-1 has-[:checked]:ring-teal-600">
-                        <input type="radio" name="metode" value="{{ $m }}" class="sr-only" {{ $loop->first ? 'checked' : '' }} required>
-                        <span class="block text-sm font-bold text-slate-900">{{ \App\Models\Pembayaran::METODE_LIST[$m] ?? $m }}</span>
-                        @if(!empty($tujuan[$m]))
-                            <span class="block text-[10px] text-slate-500 mt-1">{{ $tujuan[$m] }}</span>
-                        @endif
-                    </label>
-                @endforeach
+    @if($metodeAktif)
+        <form action="{{ route('user.peminjaman.bayar.store', $peminjaman) }}" method="POST"
+              class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-6">
+            @csrf
+            <div>
+                <label class="block text-sm font-bold text-slate-900 mb-3">Pilih Metode Pembayaran</label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    @foreach($metodeAktif as $method)
+                        <label class="relative p-3 border border-slate-200 rounded-lg cursor-pointer text-center transition
+                                      has-[:checked]:border-teal-600 has-[:checked]:bg-teal-50 has-[:checked]:ring-1 has-[:checked]:ring-teal-600">
+                            <input type="radio" name="metode" value="{{ $method }}" class="sr-only"
+                                   {{ old('metode', $loop->first ? $method : '') === $method ? 'checked' : '' }} required>
+                            <span class="block text-sm font-bold text-slate-900">{{ \App\Models\Pembayaran::METODE_LIST[$method] }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                @error('metode') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
-            @error('metode') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
-        </div>
 
-        <div>
-            <label class="block text-sm font-bold text-slate-900 mb-2">2. Nominal yang Ditransfer</label>
-            <input type="number" name="nominal" value="{{ old('nominal', $sisaTagihan) }}" min="{{ $sisaTagihan }}" required
-                   class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none">
-            @error('nominal') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-lg transition">
+                Lanjutkan Pembayaran
+            </button>
+        </form>
+    @else
+        <div class="p-5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+            Belum ada metode pembayaran yang siap digunakan. Silakan hubungi admin.
         </div>
-
-        <div>
-            <label class="block text-sm font-bold text-slate-900 mb-2">3. Unggah Bukti Transfer / Pembayaran</label>
-            <input type="file" name="bukti" accept="image/*" required
-                   class="w-full text-sm border border-slate-200 rounded-lg file:mr-3 file:px-4 file:py-2 file:rounded-lg file:border-0 file:bg-teal-600 file:text-white file:text-sm file:font-bold">
-            <p class="text-xs text-slate-500 mt-1">Screenshot bukti transfer/e-wallet (JPG/PNG, maks 2MB).</p>
-            @error('bukti') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-        </div>
-
-        <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-lg transition">
-            📤 Kirim untuk Verifikasi
-        </button>
-    </form>
+    @endif
 </div>
 @endsection

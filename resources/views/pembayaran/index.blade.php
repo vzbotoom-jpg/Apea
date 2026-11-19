@@ -15,7 +15,7 @@
     {{-- Header --}}
     <div>
         <h2 class="text-xl font-extrabold text-slate-900">Verifikasi Pembayaran</h2>
-        <p class="text-sm text-slate-500 mt-0.5">Periksa bukti transfer / e-wallet dari peminjam, lalu konfirmasi status pembayaran.</p>
+        <p class="text-sm text-slate-500 mt-0.5">Cocokkan pembayaran dengan mutasi bank/e-wallet atau penerimaan tunai, lalu konfirmasi statusnya.</p>
     </div>
 
     {{-- Statistik --}}
@@ -80,11 +80,12 @@
                         @foreach($pembayarans as $p)
                             @php
                                 $metodeBadge = match($p->metode) {
-                                    'transfer_bank' => 'bg-blue-100 text-blue-700',
+                                    'transfer_bank', 'transfer_bri', 'transfer_bca', 'transfer_bni' => 'bg-blue-100 text-blue-700',
                                     'dana'          => 'bg-sky-100 text-sky-700',
                                     'shopeepay'     => 'bg-orange-100 text-orange-700',
                                     'gopay'         => 'bg-teal-100 text-teal-700',
                                     'ovo'           => 'bg-purple-100 text-purple-700',
+                                    'qris'          => 'bg-indigo-100 text-indigo-700',
                                     default         => 'bg-slate-100 text-slate-700',
                                 };
                             @endphp

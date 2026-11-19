@@ -182,11 +182,6 @@
                 </div>
             @endif
 
-            @php
-                $metodeAktif = json_decode(\App\Models\Setting::get('metode_pembayaran_aktif', json_encode(['tunai','transfer'])), true);
-                $infoTransfer = \App\Models\Setting::get('info_transfer', '');
-            @endphp
-
             {{-- ===== STATUS PEMBAYARAN ===== --}}
             <div class="p-4 rounded-lg border {{ $peminjaman->status_pembayaran === 'lunas' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200' }}">
                 <div class="flex items-center justify-between gap-3">
@@ -195,22 +190,23 @@
                         <p class="text-xs {{ $peminjaman->status_pembayaran === 'lunas' ? 'text-emerald-600' : 'text-slate-600' }} mt-1">
                             Total tagihan: <strong>Rp {{ number_format($peminjaman->total_bayar, 0, ',', '.') }}</strong>
                             @if($peminjaman->status_pembayaran === 'lunas')
-                                — LUNAS ({{ ucfirst($peminjaman->metode_pembayaran) }}).
+                                — LUNAS ({{ \App\Models\Pembayaran::METODE_LIST[$peminjaman->metode_pembayaran] ?? ucfirst($peminjaman->metode_pembayaran) }}).
                             @else
-                                — dibayar di loket petugas saat pengambilan/pengembalian alat.
+                                — belum diverifikasi.
                             @endif
                         </p>
-                        @if($peminjaman->status_pembayaran !== 'lunas' && in_array('transfer', $metodeAktif) && $infoTransfer)
-                            <p class="text-xs text-slate-500 mt-2">💳 Transfer ke: <strong class="text-slate-700">{{ $infoTransfer }}</strong> — tunjukkan bukti transfer ke petugas.</p>
-                        @endif
                     </div>
                     <span class="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 {{ $peminjaman->status_pembayaran === 'lunas' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
                         {{ $peminjaman->status_pembayaran === 'lunas' ? 'LUNAS' : 'BELUM LUNAS' }}
                     </span>
                 </div>
 
-                {{-- ✅ FIX: tombol bayar KONDISIONAL (tidak duplikat, tidak muncul saat menunggu/lunas) --}}
-                @if($peminjaman->status_pembayaran !== 'lunas' && in_array($peminjaman->status, ['diverifikasi', 'dipinjam', 'terlambat']))
+                @if($pembayaranMenunggu)
+                    <a href="{{ route('user.pembayaran.instruksi', $pembayaranMenunggu) }}"
+                       class="mt-4 w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold rounded-lg transition">
+                        Lihat Instruksi Pembayaran
+                    </a>
+                @elseif($peminjaman->status_pembayaran !== 'lunas' && in_array($peminjaman->status, ['diverifikasi', 'dipinjam', 'terlambat', 'dikembalikan']))
                     <a href="{{ route('user.peminjaman.bayar', $peminjaman) }}"
                        class="mt-4 w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold rounded-lg transition">
                         💳 Bayar Sekarang

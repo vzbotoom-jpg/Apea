@@ -12,8 +12,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2m0 10v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2m0-8h18M7 10h.01M12 10h.01M17 10h.01M7 14h.01M12 14h.01M17 14h.01"/>
             </svg>
         </div>
-        <h2 class="text-lg font-bold text-slate-900 mb-1">Scan QR Alat</h2>
-        <p class="text-sm text-slate-600 mb-4">Klik <strong>"Mulai Scan QR"</strong> lalu arahkan kamera ke QR Code alat.</p>
+        <h2 class="text-lg font-bold text-slate-900 mb-1">Scan QR Alat atau Transaksi</h2>
+        <p class="text-sm text-slate-600 mb-4">Arahkan kamera ke QR alat atau QR transaksi peminjaman untuk membuka tindakan berikutnya.</p>
 
         {{-- Placeholder sebelum kamera aktif --}}
         <div id="scan-placeholder" class="rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 py-10 flex flex-col items-center justify-center gap-3">
@@ -64,6 +64,7 @@
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
     const appUrl = @json(url('/'));
+    const transactionScanUrl = @json(route('petugas.scan.transaksi', ['token' => '__TOKEN__']));
     let html5QrCode = null;
     let scanning = false;
     let done = false;
@@ -136,12 +137,20 @@
         let target = null;
 
         // Format QR: APIC|KODE|URL (alat) atau APIC-PMJ|KODE|URL (peminjaman)
-        if (decodedText.startsWith('APIC|') || decodedText.startsWith('APIC-PMJ|')) {
+        if (decodedText.startsWith('APIC-PMJ|')) {
+            const parts = decodedText.split('|');
+            const token = parts[1] || '';
+            if (/^[a-f0-9]{64}$/.test(token)) {
+                target = transactionScanUrl.replace('__TOKEN__', token);
+            } else if (parts[2]) {
+                target = parts[2];
+            }
+        } else if (decodedText.startsWith('APIC|')) {
             const parts = decodedText.split('|');
             target = parts[2] || null;
         }
         // URL polos dari aplikasi ini
-        else if (decodedText.startsWith(appUrl)) {
+        else if (decodedText.startsWith('http://') || decodedText.startsWith('https://')) {
             target = decodedText;
         }
         // Selain itu → anggap kode alat, cari manual
@@ -150,8 +159,15 @@
         }
 
         // Keamanan: hanya izinkan redirect ke domain sendiri
-        if (target && target.startsWith(appUrl)) {
-            setTimeout(() => window.location.href = target, 300);
+        let destination;
+        try {
+            destination = target ? new URL(target, window.location.origin) : null;
+        } catch {
+            destination = null;
+        }
+
+        if (destination && destination.origin === window.location.origin && destination.href.startsWith(appUrl)) {
+            setTimeout(() => window.location.assign(destination.href), 300);
         } else {
             done = false;
             toggleUI(false);

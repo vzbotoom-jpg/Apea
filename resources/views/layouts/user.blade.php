@@ -86,10 +86,15 @@
 
                     {{-- Profile Dropdown --}}
                     <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open" class="flex items-center gap-2 group">
-                            <span class="w-9 h-9 rounded-full bg-slate-900 text-white grid place-items-center text-sm font-bold group-hover:bg-teal-700 transition">
-                                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-                            </span>
+                        <button @click="open = !open" aria-label="Buka menu profil" class="flex items-center gap-2 group">
+                            @if(auth()->user()->foto_profil)
+                                <img src="{{ asset('storage/'.auth()->user()->foto_profil) }}" alt=""
+                                     class="h-9 w-9 rounded-full border border-slate-200 object-cover">
+                            @else
+                                <span class="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-sm font-bold text-white transition group-hover:bg-teal-700">
+                                    {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                                </span>
+                            @endif
                             <span class="hidden lg:inline text-sm font-semibold text-slate-700">{{ auth()->user()->name }}</span>
                             <svg class="w-4 h-4 text-slate-400 hidden lg:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </button>

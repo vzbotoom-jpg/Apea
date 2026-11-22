@@ -96,7 +96,7 @@
                 ['icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', 't' => 'Inventaris Real-time', 'd' => 'Stok alat berkurang & pulih otomatis mengikuti verifikasi, pembatalan, dan pengembalian.'],
                 ['icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', 't' => 'Transaksi End-to-End', 'd' => 'Pengajuan → verifikasi → serah terima → pengembalian → struk, seluruhnya tercatat rapi.'],
                 ['icon' => 'M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2m0 10v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2m0-8h18', 't' => 'QR Code Serah Terima', 'd' => 'Setiap alat & transaksi memiliki QR. Petugas scan untuk verifikasi instan tanpa input manual.'],
-                ['icon' => 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', 't' => 'Pembayaran Digital', 'd' => 'Transfer bank & e-wallet (DANA, ShopeePay, GoPay) dengan unggah bukti + verifikasi petugas. Denda dihitung otomatis.'],
+                ['icon' => 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', 't' => 'Pembayaran Digital', 'd' => 'Pilih metode pembayaran, scan QR tujuan, lalu petugas memverifikasi penerimaan dana. Denda dihitung otomatis.'],
                 ['icon' => 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', 't' => 'Notifikasi & Pengingat', 'd' => 'Persetujuan, pengingat jatuh tempo H-1, status perpanjangan, dan pembayaran — real-time.'],
                 ['icon' => 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 't' => 'Laporan & Analitik', 'd' => 'Dashboard statistik, alat terpopuler, total pemasukan, serta export PDF/Excel sekali klik.'],
             ] as $f)
@@ -173,7 +173,7 @@
             <p class="text-slate-500 mb-4"># cuplikan log aktivitas</p>
             <p><span class="text-teal-400">[petugas]</span> memverifikasi peminjaman <span class="text-amber-300">PMJ-009</span></p>
             <p><span class="text-teal-400">[sistem]</span> mengirim pengingat jatuh tempo H-1</p>
-            <p><span class="text-teal-400">[user]</span> mengunggah bukti pembayaran <span class="text-amber-300">Rp 6.000</span> via DANA</p>
+            <p><span class="text-teal-400">[user]</span> memilih DANA dan scan QR <span class="text-amber-300">Rp 6.000</span></p>
             <p><span class="text-teal-400">[petugas]</span> konfirmasi LUNAS <span class="text-amber-300">PMJ-009</span></p>
             <p><span class="text-teal-400">[admin]</span> export laporan bulanan → <span class="text-emerald-300">PDF ✓</span></p>
         </div>

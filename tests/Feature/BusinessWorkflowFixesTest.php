@@ -9,11 +9,14 @@ use App\Models\Kategori;
 use App\Models\Notifikasi;
 use App\Models\Pembayaran;
 use App\Models\Peminjaman;
+use App\Models\Pengembalian;
 use App\Models\Setting;
 use App\Models\User;
+use App\Helpers\Helper;
 use App\Services\DendaService;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -56,6 +59,54 @@ class BusinessWorkflowFixesTest extends TestCase
         $apiDetail = DetailPeminjaman::latest('id')->firstOrFail();
         $this->assertSame(30000, $apiDetail->subtotal);
         $this->assertSame(5000, $apiDetail->denda_per_hari_saat_pinjam);
+    }
+
+    public function test_daily_loan_limit_is_rechecked_inside_the_api_transaction(): void
+    {
+        Setting::set('max_alat_per_hari', 1);
+        $apiUser = User::factory()->create(['role' => 'user']);
+        $firstAlat = $this->createAlat(5);
+        $secondAlat = $this->createAlat(5);
+        $pinjamHariIni = now()->addDays(3)->toDateString();
+        $jatuhTempo = now()->addDays(4)->toDateString();
+
+        $apiToken = $apiUser->createToken('test')->plainTextToken;
+        $this->withToken($apiToken)->postJson('/api/peminjaman', [
+            'alat_ids' => [$firstAlat->id],
+            'tanggal_pinjam' => $pinjamHariIni,
+            'tanggal_jatuh_tempo' => $jatuhTempo,
+        ])->assertCreated();
+
+        $this->postJson('/api/peminjaman', [
+            'alat_ids' => [$secondAlat->id],
+            'tanggal_pinjam' => $pinjamHariIni,
+            'tanggal_jatuh_tempo' => $jatuhTempo,
+        ])->assertBadRequest()
+            ->assertJsonPath('status', false);
+        $this->assertSame(1, Peminjaman::where('user_id', $apiUser->id)->count());
+    }
+
+    public function test_daily_loan_limit_is_rechecked_inside_the_web_transaction(): void
+    {
+        Setting::set('max_alat_per_hari', 1);
+        $user = User::factory()->create(['role' => 'user']);
+        $firstAlat = $this->createAlat(5);
+        $secondAlat = $this->createAlat(5);
+        $pinjamHariIni = now()->addDays(3)->toDateString();
+        $jatuhTempo = now()->addDays(4)->toDateString();
+
+        $this->actingAs($user)->post(route('user.peminjaman.store'), [
+            'alat_ids' => [$firstAlat->id],
+            'tanggal_pinjam' => $pinjamHariIni,
+            'tanggal_jatuh_tempo' => $jatuhTempo,
+        ])->assertRedirect();
+
+        $this->post(route('user.peminjaman.store'), [
+            'alat_ids' => [$secondAlat->id],
+            'tanggal_pinjam' => $pinjamHariIni,
+            'tanggal_jatuh_tempo' => $jatuhTempo,
+        ])->assertSessionHas('error');
+        $this->assertSame(1, Peminjaman::where('user_id', $user->id)->count());
     }
 
     public function test_user_can_upload_a_profile_photo_and_replaces_the_previous_file(): void
@@ -294,6 +345,127 @@ class BusinessWorkflowFixesTest extends TestCase
         $this->actingAs($user)->post(route('user.peminjaman.bayar.store', $loan), [
             'metode' => 'transfer_bca',
         ])->assertStatus(422);
+    }
+
+    public function test_user_can_cancel_a_pending_payment_only_after_confirming_it_was_not_sent(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $alat = $this->createAlat(1);
+        $loan = $this->createLoan($user, $alat, [
+            'status' => 'dikembalikan',
+            'status_pembayaran' => 'belum_lunas',
+        ]);
+        $this->createDetail($loan, $alat, 1, 10000, 5000);
+        $payment = Pembayaran::create([
+            'peminjaman_id' => $loan->id,
+            'user_id' => $user->id,
+            'metode' => 'tunai',
+            'nominal' => 10000,
+            'status' => 'menunggu',
+        ]);
+
+        $this->actingAs($user)->get(route('user.pembayaran.instruksi', $payment))
+            ->assertOk()
+            ->assertSee('Saya belum mengirim pembayaran untuk instruksi ini.');
+
+        $this->post(route('user.pembayaran.cancel', $payment))
+            ->assertSessionHasErrors('belum_dibayar');
+
+        $this->post(route('user.pembayaran.cancel', $payment), [
+            'belum_dibayar' => '1',
+        ])->assertRedirect(route('user.peminjaman.bayar', $loan));
+        $this->assertSame('dibatalkan', $payment->fresh()->status);
+    }
+
+    public function test_public_api_tool_details_do_not_expose_borrower_data(): void
+    {
+        $borrower = User::factory()->create(['email' => 'private-borrower@example.test']);
+        $alat = $this->createAlat(1);
+        $loan = $this->createLoan($borrower, $alat);
+        $this->createDetail($loan, $alat, 1, 10000);
+
+        $this->getJson("/api/alat/{$alat->id}")
+            ->assertOk()
+            ->assertJsonMissingPath('data.detail_peminjamans')
+            ->assertDontSee('private-borrower@example.test');
+    }
+
+    public function test_api_borrowing_is_restricted_to_user_role_and_availability_route_is_reachable(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $token = $admin->createToken('test')->plainTextToken;
+
+        $this->withToken($token)->postJson('/api/peminjaman', [])
+            ->assertForbidden();
+
+        $user = User::factory()->create(['role' => 'user']);
+        $userToken = $user->createToken('test')->plainTextToken;
+        $this->withToken($userToken)->getJson('/api/peminjaman/check-availability', [
+            'alat_ids' => [],
+        ])->assertUnprocessable();
+    }
+
+    public function test_api_dashboard_works_on_sqlite_and_uses_current_year_and_assessed_fines(): void
+    {
+        Carbon::setTestNow('2026-11-17 12:00:00');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $borrower = User::factory()->create(['role' => 'user']);
+        $alat = $this->createAlat(1);
+        $previousYear = $this->createLoan($borrower, $alat);
+        $previousYear->forceFill(['created_at' => '2025-11-10 10:00:00'])->save();
+        $thisYear = $this->createLoan($borrower, $alat);
+        $thisYear->forceFill(['created_at' => '2026-11-10 10:00:00'])->save();
+        Denda::create([
+            'peminjaman_id' => $thisYear->id,
+            'jumlah_denda' => 2500,
+            'tanggal_denda' => now(),
+            'hari_terlambat' => 1,
+            'status' => 'belum_bayar',
+        ]);
+        $token = $admin->createToken('test')->plainTextToken;
+
+        $this->withToken($token)->getJson('/api/laporan/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.stats.peminjaman_bulan_ini', 1)
+            ->assertJsonPath('data.stats.total_denda', 2500);
+    }
+
+    public function test_api_loan_report_uses_assessed_fine_instead_of_return_estimate(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $user = User::factory()->create(['role' => 'user']);
+        $alat = $this->createAlat(1);
+        $loan = $this->createLoan($user, $alat);
+
+        Denda::create([
+            'peminjaman_id' => $loan->id,
+            'jumlah_denda' => 4200,
+            'tanggal_denda' => now(),
+            'hari_terlambat' => 1,
+            'status' => 'belum_bayar',
+        ]);
+        Pengembalian::create([
+            'peminjaman_id' => $loan->id,
+            'tanggal_kembali' => now(),
+            'denda' => 9999,
+            'hari_terlambat' => 1,
+            'kondisi_alat' => 'baik',
+        ]);
+
+        $token = $admin->createToken('test')->plainTextToken;
+        $this->withToken($token)->getJson('/api/laporan/peminjaman')
+            ->assertOk()
+            ->assertJsonPath('data.summary.total_denda', 4200);
+    }
+
+    public function test_code_sequence_keeps_full_numeric_suffix_after_three_digits(): void
+    {
+        DB::table('code_sequences')->where('prefix', 'ALT-')->update(['last_number' => 999]);
+
+        $code = DB::transaction(fn () => Helper::generateKode('ALT-', Alat::class, 'kode_alat'));
+
+        $this->assertSame('ALT-1000', $code);
+        $this->assertDatabaseHas('code_sequences', ['prefix' => 'ALT-', 'last_number' => 1000]);
     }
 
     public function test_admin_can_enable_payment_methods_and_upload_qr_codes(): void

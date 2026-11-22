@@ -38,7 +38,7 @@ Route::get('/kategori/{kategori}/alat', [KategoriController::class, 'alatByKateg
 // PROTECTED ROUTES (Harus login)
 // ============================================
 
-Route::middleware(['auth:sanctum', 'active'])->group(function () {
+Route::middleware(['auth:sanctum', 'active', 'verified'])->group(function () {
 
     // ============================================
     // AUTH
@@ -102,10 +102,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
         // User Routes
         Route::get('/user', [PeminjamanController::class, 'userPeminjaman']);
-        Route::post('/', [PeminjamanController::class, 'store']);
-        Route::get('/{peminjaman}', [PeminjamanController::class, 'show']);
-        Route::post('/{peminjaman}/batalkan', [PeminjamanController::class, 'batalkan']);
+        Route::post('/', [PeminjamanController::class, 'store'])->middleware('user');
         Route::get('/check-availability', [PeminjamanController::class, 'checkAvailability']);
+        Route::get('/{peminjaman}', [PeminjamanController::class, 'show']);
+        Route::post('/{peminjaman}/batalkan', [PeminjamanController::class, 'batalkan'])->middleware('user');
 
         // Petugas & Admin Routes
         Route::middleware('petugas')->group(function () {

@@ -35,6 +35,7 @@ class ProfileController extends Controller
             $validated['foto_profil'] = $request->file('foto_profil')->store('foto-profil', 'public');
         }
 
+        $emailChanged = $user->email !== $validated['email'];
         if (! empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {
@@ -43,8 +44,18 @@ class ProfileController extends Controller
 
         $user->update($validated);
 
+        if ($emailChanged) {
+            $user->forceFill(['email_verified_at' => null])->save();
+            $user->sendEmailVerificationNotification();
+        }
+
         if (isset($validated['foto_profil']) && $previousPhoto) {
             Storage::disk('public')->delete($previousPhoto);
+        }
+
+        if ($emailChanged) {
+            return redirect()->route('verification.notice')
+                ->with('success', 'Email berubah. Silakan verifikasi alamat email baru Anda.');
         }
 
         return redirect()->route('user.profile.edit')

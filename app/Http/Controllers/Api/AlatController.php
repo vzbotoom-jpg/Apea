@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\Helper;
 use App\Models\Alat;
 use App\Models\Kategori;
 use App\Models\LogActivity;
+use App\Models\MutasiAlat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -89,7 +91,7 @@ class AlatController extends Controller
      */
     public function show(Alat $alat)
     {
-        $alat->load(['kategori', 'detailPeminjamans.peminjaman.user']);
+        $alat->load('kategori');
 
         return response()->json([
             'status' => true,
@@ -131,22 +133,30 @@ class AlatController extends Controller
             'denda_per_hari' => 'required|integer|min:0',
         ]);
 
-        // Generate kode
-        $lastAlat = Alat::latest()->first();
-        $lastNumber = $lastAlat ? (int) substr($lastAlat->kode_alat, -3) : 0;
-        $validated['kode_alat'] = 'ALT-' . str_pad($lastNumber + 1, 3, '0', STR_PAD_LEFT);
-        $validated['slug'] = Str::slug($validated['nama_alat']) . '-' . uniqid();
-        $validated['stok_tersedia'] = $validated['stok'];
+        $gambarPath = null;
+        try {
+            $alat = DB::transaction(function () use ($validated, $request, &$gambarPath) {
+                $validated['kode_alat'] = Helper::generateKode('ALT-', Alat::class, 'kode_alat');
+                $validated['slug'] = Str::slug($validated['nama_alat']).'-'.uniqid();
+                $validated['stok_tersedia'] = $validated['stok'];
 
-        // Handle image
-        if ($request->hasFile('gambar')) {
-            $file = $request->file('gambar');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $path = $file->storeAs('alat', $filename, 'public');
-            $validated['gambar'] = $path;
+                if ($request->hasFile('gambar')) {
+                    $gambarPath = $request->file('gambar')->store('alat', 'public');
+                    $validated['gambar'] = $gambarPath;
+                }
+
+                $alat = Alat::create($validated);
+                MutasiAlat::catat($alat, 'masuk', $alat->stok, 'Stok awal alat');
+
+                return $alat;
+            });
+        } catch (\Throwable $exception) {
+            if ($gambarPath) {
+                Storage::disk('public')->delete($gambarPath);
+            }
+
+            throw $exception;
         }
-
-        $alat = Alat::create($validated);
 
         LogActivity::log(auth()->id(), "Menambah alat baru: {$alat->nama_alat}", 'API');
 

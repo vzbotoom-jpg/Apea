@@ -45,6 +45,8 @@ berbasis **QR Code** → pembayaran multi-metode → pengembalian → laporan.
 APIC juga menyediakan REST API berbasis Laravel Sanctum untuk integrasi
 mobile dan klien lain. Versi Android dibangun dengan **Capacitor** dari aset
 web aplikasi.
+Registrasi melalui web maupun API harus menyelesaikan verifikasi email sebelum
+mengakses panel atau endpoint API yang dilindungi.
 
 ## ✨ Fitur
 
@@ -56,7 +58,7 @@ web aplikasi.
 ### 🔐 Autentikasi
 - Register & Login berbasis role
 - Lupa password / reset password
-- Verifikasi email
+- Verifikasi email untuk mengaktifkan akses panel dan API
 - REST API token melalui Laravel Sanctum
 
 ### 👤 User (Siswa / Peminjam)
@@ -64,8 +66,9 @@ web aplikasi.
 - Pengajuan peminjaman (pilih alat, tanggal pinjam & kembali, catatan)
 - Riwayat & detail transaksi bergaya invoice
 - **QR transaksi** untuk serah terima tanpa pencarian kode manual
-- Pembayaran multi-metode: Transfer Bank, DANA, ShopeePay, GoPay, OVO, Tunai
-  (+ unggah bukti transfer; QR tujuan dikelola admin)
+- Pembayaran multi-metode: Transfer Bank BRI/BCA/BNI, QRIS, DANA, GoPay, OVO,
+  ShopeePay, dan Tunai. Peminjam memilih metode lalu membayar melalui QR atau
+  loket; petugas memeriksa penerimaan secara manual, tanpa unggah bukti.
 - Pengajuan **perpanjangan** (maks. 7 hari, persetujuan petugas)
 - Pembatalan pengajuan berstatus *menunggu*
 - Notifikasi real-time & manajemen profil
@@ -77,7 +80,7 @@ web aplikasi.
 - Proses pengembalian + pencatatan kondisi alat + **cetak struk**
 - **Scan QR alat** untuk serah terima & pengembalian cepat
 - Scan QR transaksi untuk identifikasi peminjaman
-- Verifikasi pembayaran (bukti transfer) → status **LUNAS**
+- Verifikasi penerimaan pembayaran manual → status **LUNAS**
 - Detail alat + riwayat peminjaman & mutasi stok
 - Laporan harian / periodik
 
@@ -92,7 +95,7 @@ web aplikasi.
 - Export laporan **PDF / Excel**
 
 ### 🔔 Sistem Notifikasi
-- Notifikasi otomatis setiap perubahan status (verifikasi, pembayaran,
+- Notifikasi otomatis pada perubahan status (verifikasi, pembayaran,
   pengingat jatuh tempo H-1)
 - Badge *belum dibaca* di topbar & sidebar seluruh panel
 
@@ -139,7 +142,7 @@ php artisan migrate --seed
 npm install
 npm run build
 
-# 7. Symlink storage (gambar alat & bukti transfer)
+# 7. Symlink storage (gambar alat, foto profil, QR tujuan, dan bukti pengembalian)
 php artisan storage:link
 
 # 8. Jalankan aplikasi
@@ -205,9 +208,10 @@ routes/api.php      # Endpoint REST API
 
 ## 🧪 Skenario Uji Coba
 
-1. **User** mendaftar → mengajukan 2 alat → membayar via DANA (unggah bukti).
-2. **Petugas** memverifikasi pengajuan → scan QR serah terima → verifikasi
-   pembayaran → proses pengembalian + struk.
+1. **User** mendaftar dan memverifikasi email → mengajukan alat → memilih metode
+   pembayaran → membayar via QR atau loket.
+2. **Petugas** memverifikasi pengajuan → scan QR serah terima → mengonfirmasi
+   penerimaan pembayaran → proses pengembalian + struk.
 3. **Admin** mengubah tarif denda & metode pembayaran aktif → memantau grafik
    dan log aktivitas.
 4. Sistem otomatis: mengurangi/memulihkan stok, menghitung denda setelah masa

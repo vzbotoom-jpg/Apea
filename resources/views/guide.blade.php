@@ -10,9 +10,11 @@
                 <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Daftar Isi</h3>
                 <nav class="space-y-2 border-l border-slate-200 pl-4">
                     <a href="#intro" class="block text-sm text-slate-600 hover:text-teal-600 border-l-2 border-transparent hover:border-teal-600 -ml-[17px] pl-4 py-1">Pendahuluan</a>
-                    <a href="#register" class="block text-sm text-slate-600 hover:text-teal-600 border-l-2 border-transparent hover:border-teal-600 -ml-[17px] pl-4 py-1">Registrasi</a>
-                    <a href="#borrow" class="block text-sm text-slate-600 hover:text-teal-600 border-l-2 border-transparent hover:border-teal-600 -ml-[17px] pl-4 py-1">Meminjam Alat</a>
-                    <a href="#return" class="block text-sm text-slate-600 hover:text-teal-600 border-l-2 border-transparent hover:border-teal-600 -ml-[17px] pl-4 py-1">Pengembalian</a>
+                    <a href="#register" class="block text-sm text-slate-600 hover:text-teal-600 border-l-2 border-transparent hover:border-teal-600 -ml-[17px] pl-4 py-1">Akun & verifikasi</a>
+                    <a href="#borrow" class="block text-sm text-slate-600 hover:text-teal-600 border-l-2 border-transparent hover:border-teal-600 -ml-[17px] pl-4 py-1">Peminjaman</a>
+                    <a href="#payment" class="block text-sm text-slate-600 hover:text-teal-600 border-l-2 border-transparent hover:border-teal-600 -ml-[17px] pl-4 py-1">Pembayaran</a>
+                    <a href="#return" class="block text-sm text-slate-600 hover:text-teal-600 border-l-2 border-transparent hover:border-teal-600 -ml-[17px] pl-4 py-1">Pengembalian & denda</a>
+                    <a href="#staff" class="block text-sm text-slate-600 hover:text-teal-600 border-l-2 border-transparent hover:border-teal-600 -ml-[17px] pl-4 py-1">Petugas & admin</a>
                 </nav>
             </div>
         </div>
@@ -24,46 +26,66 @@
             <div id="intro" class="mb-12 scroll-mt-24">
                 <h2 class="text-xl font-bold text-slate-900 mb-4">1. Pendahuluan</h2>
                 <p class="text-slate-600 leading-relaxed mb-4">
-                    Selamat datang di APIC. Sistem ini dirancang untuk mempermudah siswa dan guru dalam mengelola peminjaman alat laboratorium dan bengkel.
+                    APIC membantu peminjam mengajukan dan memantau peminjaman alat laboratorium atau bengkel. Petugas memproses pengajuan, serah terima, pengembalian, serta verifikasi pembayaran; admin mengelola data dan pengaturan sistem.
                 </p>
                 <div class="bg-teal-50 border-l-4 border-teal-500 p-4 rounded-r-md">
-                    <p class="text-sm text-teal-800"><strong>Catatan:</strong> Pastikan Anda menggunakan email sekolah yang aktif saat mendaftar.</p>
+                    <p class="text-sm text-teal-800"><strong>Catatan:</strong> Menu dan tindakan yang tersedia bergantung pada peran akun Anda. Gunakan email aktif agar dapat menerima tautan verifikasi dan notifikasi.</p>
                 </div>
             </div>
 
             <div id="register" class="mb-12 scroll-mt-24">
-                <h2 class="text-xl font-bold text-slate-900 mb-4">2. Registrasi Akun</h2>
+                <h2 class="text-xl font-bold text-slate-900 mb-4">2. Akun dan Verifikasi Email</h2>
                 <ol class="list-decimal list-inside space-y-3 text-slate-600 marker:text-teal-600 marker:font-bold">
                     <li>Klik tombol <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-sm">Daftar</span> di pojok kanan atas.</li>
                     <li>Isi formulir pendaftaran dengan data diri yang valid.</li>
-                    <li>Password minimal 8 karakter kombinasi huruf dan angka.</li>
+                    <li>Buat password minimal 8 karakter dan konfirmasi password.</li>
                     <li>Klik <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-sm">Buat Akun</span>.</li>
-                    <li>Verifikasi email Anda melalui tautan yang dikirimkan.</li>
-                    <li>Setelah verifikasi, Anda dapat masuk ke sistem menggunakan email dan password yang telah dibuat.</li>
+                    <li>Buka tautan verifikasi yang dikirim ke email. Akses panel dan API memerlukan email yang sudah diverifikasi.</li>
+                    <li>Setelah verifikasi, masuk menggunakan email dan password yang telah dibuat. Jika alamat email diubah dari profil, verifikasi ulang alamat baru sebelum melanjutkan.</li>
                 </ol>
             </div>
 
             <div id="borrow" class="mb-12 scroll-mt-24">
-                <h2 class="text-xl font-bold text-slate-900 mb-4">3. Cara Meminjam Alat</h2>
-                <div class="grid md:grid-cols-2 gap-6 mt-6">
-                    <div class="border border-slate-200 p-6 rounded-md">
-                        <div class="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center text-sm font-bold mb-4">1</div>
-                        <h4 class="font-bold text-slate-900 mb-2">Cari Alat</h4>
-                        <p class="text-sm text-slate-600">Gunakan fitur pencarian atau filter kategori untuk menemukan alat.</p>
-                    </div>
-                    <div class="border border-slate-200 p-6 rounded-md">
-                        <div class="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center text-sm font-bold mb-4">2</div>
-                        <h4 class="font-bold text-slate-900 mb-2">Ajukan Pinjam</h4>
-                        <p class="text-sm text-slate-600">Pilih tanggal dan klik ajukan. Tunggu verifikasi petugas.</p>
-                    </div>
-                </div>
+                <h2 class="text-xl font-bold text-slate-900 mb-4">3. Mengajukan dan Mengelola Peminjaman</h2>
+                <ol class="list-decimal list-inside space-y-3 text-slate-600 marker:text-teal-600 marker:font-bold">
+                    <li>Cari alat dari katalog atau menu alat. Periksa stok yang tersedia.</li>
+                    <li>Pada menu pengajuan, pilih alat, tanggal pinjam, dan tanggal kembali. Tanggal kembali harus setelah tanggal pinjam. Tambahkan catatan bila diperlukan.</li>
+                    <li>Perhatikan kuota alat per tanggal yang ditetapkan sistem, lalu kirim pengajuan. Stok akan dipesan dan status pengajuan menjadi <strong>menunggu</strong>.</li>
+                    <li>Pantau status dari riwayat atau detail transaksi. Setelah petugas memverifikasi pengajuan, bawa atau tampilkan QR transaksi pada halaman detail saat mengambil alat. Petugas memproses serah terima.</li>
+                    <li>Pengajuan yang masih berstatus <strong>menunggu</strong> dapat dibatalkan dari detail transaksi. Untuk memperpanjang peminjaman yang sedang berlangsung, ajukan perpanjangan dan tunggu persetujuan petugas.</li>
+                </ol>
+                <p class="mt-4 text-sm text-slate-600">Biaya sewa dihitung berdasarkan harga alat dan lama peminjaman. Batas kuota dan maksimal perpanjangan mengikuti pengaturan admin.</p>
             </div>
-            
-             <div id="return" class="scroll-mt-24">
-                <h2 class="text-xl font-bold text-slate-900 mb-4">4. Pengembalian</h2>
-                <p class="text-slate-600 leading-relaxed">
-                    Kembalikan alat ke petugas sesuai jadwal. Keterlambatan akan dikenakan denda sesuai ketentuan sekolah yang tertera di dashboard Anda.
+
+            <div id="payment" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-slate-900 mb-4">4. Pembayaran</h2>
+                <ol class="list-decimal list-inside space-y-3 text-slate-600 marker:text-teal-600 marker:font-bold">
+                    <li>Pembayaran tersedia setelah pengajuan diverifikasi. Buka detail transaksi dan pilih <strong>Bayar Sekarang</strong> jika tagihan belum lunas.</li>
+                    <li>Pilih salah satu metode yang tersedia. Metode dapat berupa tunai atau transfer/QRIS/dompet digital sesuai pilihan yang diaktifkan admin.</li>
+                    <li>Untuk pembayaran digital, ikuti instruksi dan pindai QR tujuan yang ditampilkan. Untuk tunai, lakukan pembayaran di loket petugas.</li>
+                    <li>Status pembayaran tetap menunggu sampai admin atau petugas memeriksa dan menyetujuinya. Jangan membayar berulang saat verifikasi masih berlangsung.</li>
+                    <li>Jika belum mengirim pembayaran, instruksi berstatus menunggu dapat dibatalkan dengan mencentang konfirmasi belum membayar, lalu pilih metode kembali. Pembayaran yang sudah dikirim tidak boleh dibatalkan dengan cara ini.</li>
+                </ol>
+                <p class="mt-4 text-sm text-slate-600">Nominal tagihan dan sisa pembayaran ditampilkan sebelum memilih metode. Unggah bukti transfer tidak diperlukan pada alur pembayaran saat ini.</p>
+            </div>
+
+            <div id="return" class="mb-12 scroll-mt-24">
+                <h2 class="text-xl font-bold text-slate-900 mb-4">5. Pengembalian dan Denda</h2>
+                <p class="text-slate-600 leading-relaxed mb-4">
+                    Kembalikan alat kepada petugas paling lambat pada tanggal jatuh tempo. Petugas mencatat kondisi alat dan menyelesaikan proses pengembalian; kondisi rusak atau hilang perlu disampaikan saat serah terima.
                 </p>
+                <p class="text-slate-600 leading-relaxed">
+                    Sistem menghitung denda keterlambatan berdasarkan masa tenggang dan tarif yang dikonfigurasi admin, termasuk tarif per alat yang berlaku saat peminjaman. Pantau status, denda, dan sisa tagihan pada detail transaksi. Tagihan yang masih ada dapat dibayar melalui metode yang tersedia dan baru berstatus lunas setelah diverifikasi.
+                </p>
+            </div>
+
+            <div id="staff" class="scroll-mt-24">
+                <h2 class="text-xl font-bold text-slate-900 mb-4">6. Panduan Petugas dan Admin</h2>
+                <ul class="list-disc list-inside space-y-3 text-slate-600 marker:text-teal-600">
+                    <li><strong>Petugas:</strong> verifikasi pengajuan, proses serah terima dan pengembalian, tinjau kondisi alat, serta verifikasi pembayaran yang telah diterima.</li>
+                    <li><strong>Scan QR:</strong> buka menu scan dan izinkan akses kamera. QR transaksi dari detail peminjaman membantu membuka transaksi untuk diproses tanpa mencari kode secara manual. Jika kamera tidak tersedia, cari alat menggunakan kode atau nama pada kolom pencarian.</li>
+                    <li><strong>Admin:</strong> kelola alat, kategori, pengguna, dan laporan. Pada Pengaturan Sistem, admin dapat menetapkan kuota, masa tenggang, tarif denda, batas perpanjangan, metode pembayaran aktif, serta QR tujuan untuk metode non-tunai.</li>
+                </ul>
             </div>
 
             <div class="mt-16 pt-8 border-t border-slate-100">

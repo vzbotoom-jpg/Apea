@@ -102,6 +102,31 @@ class PembayaranController extends Controller
         return view('user.pembayaran.instruksi', compact('pembayaran'));
     }
 
+    public function cancel(Request $request, Pembayaran $pembayaran)
+    {
+        abort_unless($pembayaran->user_id === auth()->id(), 403);
+        $request->validate(['belum_dibayar' => 'accepted']);
+
+        $cancelled = DB::transaction(function () use ($pembayaran): bool {
+            $payment = Pembayaran::whereKey($pembayaran->id)->lockForUpdate()->firstOrFail();
+            if ($payment->user_id !== auth()->id() || $payment->status !== 'menunggu') {
+                return false;
+            }
+
+            $payment->update([
+                'status' => 'dibatalkan',
+                'catatan' => 'Dibatalkan peminjam sebelum pembayaran dikirim.',
+            ]);
+
+            return true;
+        });
+
+        abort_unless($cancelled, 422, 'Pembayaran ini sudah diproses dan tidak dapat dibatalkan.');
+
+        return redirect()->route('user.peminjaman.bayar', $pembayaran->peminjaman)
+            ->with('success', 'Instruksi pembayaran dibatalkan. Silakan pilih metode kembali.');
+    }
+
     // ================= PETUGAS / ADMIN =================
     private function guardStaff(): void
     {

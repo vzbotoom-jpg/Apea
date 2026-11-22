@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\Helper;
 use App\Models\Alat;
 use App\Models\Kategori;
 use App\Http\Requests\AlatRequest;
@@ -54,30 +55,30 @@ class AlatController extends Controller
     public function store(AlatRequest $request)
     {
         $data = $request->validated();
-        
-        // Generate kode alat
-        $lastAlat = Alat::latest()->first();
-        $lastNumber = $lastAlat ? (int) substr($lastAlat->kode_alat, -3) : 0;
-        $data['kode_alat'] = 'ALT-' . str_pad($lastNumber + 1, 3, '0', STR_PAD_LEFT);
-        
-        // Generate slug
-        $data['slug'] = Str::slug($data['nama_alat']) . '-' . uniqid();
-        
-        // Handle image upload
-        if ($request->hasFile('gambar')) {
-            $image = $request->file('gambar');
-            $filename = time() . '_' . $image->getClientOriginalName();
-            $path = $image->storeAs('alat', $filename, 'public');
-            $data['gambar'] = $path;
+        $gambarPath = null;
+        try {
+            $alat = DB::transaction(function () use ($data, $request, &$gambarPath) {
+                $data['kode_alat'] = Helper::generateKode('ALT-', Alat::class, 'kode_alat');
+                $data['slug'] = Str::slug($data['nama_alat']).'-'.uniqid();
+                $data['stok_tersedia'] = $data['stok'];
+
+                if ($request->hasFile('gambar')) {
+                    $gambarPath = $request->file('gambar')->store('alat', 'public');
+                    $data['gambar'] = $gambarPath;
+                }
+
+                $alat = Alat::create($data);
+                MutasiAlat::catat($alat, 'masuk', $alat->stok, 'Stok awal alat');
+
+                return $alat;
+            });
+        } catch (\Throwable $exception) {
+            if ($gambarPath) {
+                Storage::disk('public')->delete($gambarPath);
+            }
+
+            throw $exception;
         }
-
-        // Set stok_tersedia sama dengan stok
-        $data['stok_tersedia'] = $data['stok'];
-
-        $alat = Alat::create($data);
-
-        // Catat mutasi stok awal alat
-        MutasiAlat::catat($alat, 'masuk', $alat->stok, 'Stok awal alat');
 
         // Log activity
         activity()->log("Menambahkan alat baru: {$alat->nama_alat}");

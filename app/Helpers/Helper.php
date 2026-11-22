@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use App\Models\Notifikasi;
 use App\Models\LogActivity;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class Helper
@@ -49,14 +50,28 @@ class Helper
      */
     public static function generateKode($prefix, $model, $field = 'kode_', $length = 3)
     {
-        $last = $model::latest()->first();
-        if (!$last) {
-            return $prefix . str_pad('1', $length, '0', STR_PAD_LEFT);
+        if (DB::transactionLevel() === 0) {
+            throw new \LogicException('Kode hanya dapat dibuat di dalam transaksi database.');
         }
-        
-        $lastNumber = (int) substr($last->$field, -$length);
-        $newNumber = str_pad($lastNumber + 1, $length, '0', STR_PAD_LEFT);
-        return $prefix . $newNumber;
+
+        $sequence = DB::table('code_sequences')
+            ->where('prefix', $prefix)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $sequence) {
+            throw new \LogicException("Urutan kode untuk prefix {$prefix} belum diinisialisasi.");
+        }
+
+        $nextNumber = (int) $sequence->last_number + 1;
+        DB::table('code_sequences')
+            ->where('id', $sequence->id)
+            ->update([
+                'last_number' => $nextNumber,
+                'updated_at' => now(),
+            ]);
+
+        return $prefix.str_pad((string) $nextNumber, $length, '0', STR_PAD_LEFT);
     }
 
     /**

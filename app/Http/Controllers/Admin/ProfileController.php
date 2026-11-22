@@ -32,6 +32,7 @@ class ProfileController extends Controller
             'password' => 'nullable|min:8|confirmed',
         ]);
 
+        $emailChanged = $user->email !== $validated['email'];
         if (! empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {
@@ -39,6 +40,14 @@ class ProfileController extends Controller
         }
 
         $user->update($validated);
+
+        if ($emailChanged) {
+            $user->forceFill(['email_verified_at' => null])->save();
+            $user->sendEmailVerificationNotification();
+
+            return redirect()->route('verification.notice')
+                ->with('success', 'Email berubah. Silakan verifikasi alamat email baru Anda.');
+        }
 
         return redirect()->route('admin.profile.edit')
             ->with('success', 'Profil berhasil diperbarui!');

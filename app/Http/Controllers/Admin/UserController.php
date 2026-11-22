@@ -54,6 +54,7 @@ class UserController extends Controller
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
+        $validated['email_verified_at'] = now();
         
         $user = User::create($validated);
 
@@ -80,10 +81,15 @@ class UserController extends Controller
             'password' => 'nullable|min:8|confirmed',
         ]);
 
+        $emailChanged = $user->email !== $validated['email'];
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {
             unset($validated['password']);
+        }
+
+        if ($emailChanged) {
+            $validated['email_verified_at'] = now();
         }
 
         $user->update($validated);

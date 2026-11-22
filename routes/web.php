@@ -61,12 +61,14 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:5,1');
     Route::get('/register', [RegisterController::class, 'showRegisterForm'])->name('register');
-    Route::post('/register', [RegisterController::class, 'register']);
+    Route::post('/register', [RegisterController::class, 'register'])->middleware('throttle:10,1');
     Route::get('/model', [HomeController::class, 'model'])->name('model');
 
     // ✅ BARU: Forgot Password
     Route::get('/forgot-password', [ForgotPasswordController::class, 'showForm'])->name('password.request');
-    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink'])->name('password.email');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink'])
+        ->middleware(['throttle:5,1', 'throttle:password-reset-email'])
+        ->name('password.email');
     Route::get('/reset-password/{token}', [ResetPasswordController::class, 'showForm'])->name('password.reset');
     Route::post('/reset-password', [ResetPasswordController::class, 'reset'])->name('password.update');
 });
@@ -78,28 +80,31 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 // ============================================
 Route::middleware('auth')->group(function () {
     Route::get('/email/verify', [VerificationController::class, 'notice'])->name('verification.notice');
-    Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
-        ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
     Route::post('/email/verification-notification', [VerificationController::class, 'resend'])
         ->middleware('throttle:6,1')->name('verification.resend');
 });
 
-Route::middleware('auth')->group(function () {
+Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
+    ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/qr/alat/{alat}', [QrController::class, 'alat'])->name('qr.alat');
     Route::get('/qr/alat/{alat}/print', [QrController::class, 'print'])->name('qr.alat.print');
     Route::get('/qr/peminjaman/{peminjaman}', [QrController::class, 'peminjaman'])->name('qr.peminjaman');
 });
 
 // ===== USER: kirim pembayaran =====
-Route::middleware(['auth', 'user'])->group(function () {
+Route::middleware(['auth', 'verified', 'user'])->group(function () {
     Route::get('peminjaman/{peminjaman}/bayar', [PembayaranController::class, 'form'])->name('user.peminjaman.bayar');
     Route::post('peminjaman/{peminjaman}/bayar', [PembayaranController::class, 'store'])->name('user.peminjaman.bayar.store');
     Route::get('pembayaran/{pembayaran}/instruksi', [PembayaranController::class, 'instructions'])
         ->name('user.pembayaran.instruksi');
+    Route::post('pembayaran/{pembayaran}/batalkan', [PembayaranController::class, 'cancel'])
+        ->name('user.pembayaran.cancel');
 });
 
 // ===== PETUGAS & ADMIN: verifikasi pembayaran =====
-Route::prefix('pembayaran')->name('pembayaran.')->middleware('auth')->group(function () {
+Route::prefix('pembayaran')->name('pembayaran.')->middleware(['auth', 'verified'])->group(function () {
     Route::get('/', [PembayaranController::class, 'index'])->name('index');
     Route::get('{pembayaran}', [PembayaranController::class, 'show'])->name('show');
     Route::get('{pembayaran}/bukti', [PembayaranController::class, 'bukti'])->name('bukti');
@@ -108,13 +113,13 @@ Route::prefix('pembayaran')->name('pembayaran.')->middleware('auth')->group(func
 });
 
 Route::get('/denda', [DendaController::class, 'index'])
-    ->middleware(['auth', 'petugas'])
+    ->middleware(['auth', 'verified', 'petugas'])
     ->name('denda.index');
 
 // ============================================
 // ADMIN ROUTES
 // ============================================
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin'])->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     
     // Manajemen Kategori
@@ -161,7 +166,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 // ============================================
 // PETUGAS ROUTES
 // ============================================
-Route::prefix('petugas')->name('petugas.')->middleware(['auth', 'petugas'])->group(function () {
+Route::prefix('petugas')->name('petugas.')->middleware(['auth', 'verified', 'petugas'])->group(function () {
     Route::get('/dashboard', [PetugasDashboardController::class, 'index'])->name('dashboard');
     
     // Alat
@@ -198,7 +203,7 @@ Route::prefix('petugas')->name('petugas.')->middleware(['auth', 'petugas'])->gro
 // ============================================
 // USER ROUTES
 // ============================================
-Route::prefix('user')->name('user.')->middleware(['auth', 'user'])->group(function () {
+Route::prefix('user')->name('user.')->middleware(['auth', 'verified', 'user'])->group(function () {
     Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('dashboard');
     
     // Alat

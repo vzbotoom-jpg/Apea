@@ -27,7 +27,9 @@ class RegisterController extends Controller
         ]);
 
         auth()->login($user);
+        $user->sendEmailVerificationNotification();
 
-        return redirect()->route('user.dashboard')->with('success', 'Akun berhasil dibuat!');
+        return redirect()->route('verification.notice')
+            ->with('success', 'Akun berhasil dibuat. Silakan verifikasi email Anda.');
     }
 }

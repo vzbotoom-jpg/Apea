@@ -39,13 +39,21 @@ class ProfileController extends Controller
             'alamat' => 'nullable|string',
         ]);
 
+        $emailChanged = $user->email !== $validated['email'];
         $user->update($validated);
+        if ($emailChanged) {
+            $user->forceFill(['email_verified_at' => null])->save();
+            $user->sendEmailVerificationNotification();
+        }
 
         LogActivity::log($user->id, "Memperbarui profil", 'API');
 
         return response()->json([
             'status' => true,
-            'message' => 'Profil berhasil diperbarui!',
+            'message' => $emailChanged
+                ? 'Profil diperbarui. Verifikasi email baru sebelum menggunakan API kembali.'
+                : 'Profil berhasil diperbarui!',
+            'email_verification_required' => $emailChanged,
             'data' => $user,
         ]);
     }
@@ -193,6 +201,7 @@ class ProfileController extends Controller
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
+        $validated['email_verified_at'] = now();
         
         $user = User::create($validated);
 
@@ -237,7 +246,12 @@ class ProfileController extends Controller
             unset($validated['password']);
         }
 
+        $emailChanged = $user->email !== $validated['email'];
         $user->update($validated);
+        if ($emailChanged) {
+            $user->forceFill(['email_verified_at' => null])->save();
+            $user->sendEmailVerificationNotification();
+        }
 
         LogActivity::log(auth()->id(), "Memperbarui user: {$user->name}", 'API');
 

@@ -35,6 +35,7 @@ class AuthController extends Controller
             'status' => 'active',
         ]);
 
+        $user->sendEmailVerificationNotification();
         $token = $user->createToken('auth_token')->plainTextToken;
 
         LogActivity::log($user->id, 'Register', 'User registered via API');

@@ -28,24 +28,23 @@ class LaporanController extends Controller
         $totalPeminjaman = Peminjaman::count();
         $totalUser = User::where('role', 'user')->count();
         $totalAlat = Alat::count();
-        $totalDenda = Pengembalian::sum('denda');
+        $totalDenda = Denda::sum('jumlah_denda');
         
-        $peminjamanBulanIni = Peminjaman::whereMonth('created_at', Carbon::now()->month)->count();
+        $peminjamanBulanIni = Peminjaman::whereYear('created_at', Carbon::now()->year)
+            ->whereMonth('created_at', Carbon::now()->month)
+            ->count();
         $peminjamanAktif = Peminjaman::whereIn('status', ['dipinjam', 'terlambat'])->count();
         $peminjamanMenunggu = Peminjaman::where('status', 'menunggu')->count();
 
         // Peminjaman per bulan
-        $peminjamanPerBulan = Peminjaman::selectRaw('MONTH(tanggal_pinjam) as bulan, COUNT(*) as total')
+        $peminjamanPerBulan = Peminjaman::query()
             ->whereYear('tanggal_pinjam', Carbon::now()->year)
-            ->groupBy('bulan')
-            ->orderBy('bulan')
-            ->get()
-            ->pluck('total', 'bulan')
-            ->toArray();
+            ->get(['tanggal_pinjam'])
+            ->countBy(fn (Peminjaman $peminjaman) => $peminjaman->tanggal_pinjam->month);
 
         $chartData = [];
         for ($i = 1; $i <= 12; $i++) {
-            $chartData[] = $peminjamanPerBulan[$i] ?? 0;
+            $chartData[] = $peminjamanPerBulan->get($i, 0);
         }
 
         // Top 5 alat
@@ -77,7 +76,7 @@ class LaporanController extends Controller
      */
     public function peminjaman(Request $request)
     {
-        $query = Peminjaman::with(['user', 'detailPeminjamans.alat']);
+        $query = Peminjaman::with(['user', 'detailPeminjamans.alat', 'denda']);
 
         if ($request->has('start_date')) {
             $query->whereDate('tanggal_pinjam', '>=', $request->start_date);
@@ -99,7 +98,7 @@ class LaporanController extends Controller
                 return $p->detailPeminjamans->sum('subtotal');
             }),
             'total_denda' => $peminjamans->sum(function ($p) {
-                return $p->pengembalian?->denda ?? 0;
+                return $p->denda?->jumlah_denda ?? $p->pengembalian?->denda ?? 0;
             }),
         ];
 

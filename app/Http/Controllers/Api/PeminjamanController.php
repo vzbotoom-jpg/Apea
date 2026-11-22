@@ -11,6 +11,7 @@ use App\Models\Notifikasi;
 use App\Models\LogActivity;
 use App\Helpers\Helper;
 use App\Models\Setting;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -113,7 +114,7 @@ class PeminjamanController extends Controller
     {
         $request->validate([
             'alat_ids' => 'required|array',
-            'alat_ids.*' => 'exists:alats,id',
+            'alat_ids.*' => 'required|distinct|exists:alats,id',
         ]);
 
         $results = [];
@@ -147,25 +148,27 @@ class PeminjamanController extends Controller
             'catatan' => 'nullable|string|max:500',
         ]);
 
-        // Check max 2 alat per hari
-        $todayPeminjaman = Peminjaman::where('user_id', auth()->id())
-            ->whereDate('tanggal_pinjam', Carbon::today())
-            ->whereIn('status', ['menunggu', 'diverifikasi', 'dipinjam'])
-            ->withCount('detailPeminjamans')
-            ->get();
-
-        $totalDipinjamHariIni = $todayPeminjaman->sum('detail_peminjamans_count');
-        
-        if (($totalDipinjamHariIni + count($request->alat_ids)) > $maxAlat) {
-            return response()->json([
-                'status' => false,
-                'message' => "Maksimal peminjaman {$maxAlat} alat per hari!",
-            ], 400);
-        }
-
         DB::beginTransaction();
 
         try {
+            User::whereKey(auth()->id())->lockForUpdate()->firstOrFail();
+
+            $todayPeminjaman = Peminjaman::where('user_id', auth()->id())
+                ->whereDate('tanggal_pinjam', $request->input('tanggal_pinjam'))
+                ->whereIn('status', ['menunggu', 'diverifikasi', 'dipinjam'])
+                ->withCount('detailPeminjamans')
+                ->get();
+            $totalDipinjamHariIni = $todayPeminjaman->sum('detail_peminjamans_count');
+
+            if (($totalDipinjamHariIni + count($request->alat_ids)) > $maxAlat) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => false,
+                    'message' => "Maksimal peminjaman {$maxAlat} alat per hari!",
+                ], 400);
+            }
+
             // Generate kode
             $kodePeminjaman = Helper::generateKode('PMJ-', new Peminjaman(), 'kode_peminjaman');
 

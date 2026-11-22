@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Peminjaman;
 use App\Models\Alat;
+use App\Models\Denda;
 use App\Models\User;
 use App\Models\Pengembalian;
 use App\Exports\PeminjamanExport;
@@ -23,7 +24,7 @@ class LaporanController extends Controller
         $peminjamanBulanIni = Peminjaman::whereYear('created_at', Carbon::now()->year)
             ->whereMonth('created_at', Carbon::now()->month)
             ->count();
-        $totalDenda = Pengembalian::sum('denda');
+        $totalDenda = Denda::sum('jumlah_denda');
         $totalPemasukan = \App\Models\Pembayaran::where('status', 'disetujui')->sum('nominal');
 
         // Peminjaman per bulan (chart)
